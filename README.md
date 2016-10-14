@@ -1121,7 +1121,7 @@ If you would like to test e-mail or XMPP, feel free to [contact me](http://duh.t
     doc@duh.to
 
     PGP: 011C E16B D45B 27A5 5BA8 776D FF3E 7D88 647E BCDB
-    OTR: D5CC 3CAB 38E0 AD81 3A36 B271 8F89 3137 9A4C 52BC
+    OTR: 53E4 46FF 343D D8C1 F102 FA21 2588 1467 4FCF EEF0
 
 # Todo
 
