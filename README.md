@@ -1,3 +1,11 @@
+This is a step-by-step guide to configuring and managing a domain, remote server and hosted services, such as VPN, a private and obfuscated Tor bridge, and encrypted chat, using the [Debian GNU/Linux](https://www.debian.org/releases/jessie/amd64/ch01s03.html.en) operating system and other free software.
+
+I like to set up my servers and services in these ways. This guide is **not** meant to be a canonical guide on best practices. I am **not** responsible for anything you do nor break by following any of these steps.
+
+This guide is written for [Google Compute Engine](https://cloud.google.com/compute/) (GCE), but will very likely work well on other service providers, such as Linode or Amazon AWS, or any computer which will run GNU/Linux, such as an [APU1C](http://www.pcengines.ch/apu1c.htm) in a closet. It uses recommended configuration files from [drduh/config](https://github.com/drduh/config).
+
+If you have a suggestion or spot an error, don't hack me, rather please send a pull request or open an issue on GitHub.
+
 - [Domain](#domain)
 - [Compute Engine](#compute-engine)
   - [Create instance](#create-instance)
@@ -26,14 +34,6 @@
 - [Mail](#mail)
 - [Conclusion](#conclusion)
 - [Todo](#todo)
-
-This is a step-by-step guide to configuring and managing a domain, remote server and hosted services, such as VPN, a private and obfuscated Tor bridge, and encrypted chat, using the [Debian GNU/Linux](https://www.debian.org/releases/jessie/amd64/ch01s03.html.en) operating system and other free software.
-
-I like to set up my servers and services in these ways. This guide is **not** meant to be a canonical guide on best practices. I am **not** responsible for anything you do nor break by following any of these steps.
-
-This guide is written for [Google Compute Engine](https://cloud.google.com/compute/) (GCE), but will very likely work well on other service providers, such as Linode or Amazon AWS, or any computer which will run GNU/Linux, such as an [APU1C](http://www.pcengines.ch/apu1c.htm) in a closet. It uses recommended configuration files from [drduh/config](https://github.com/drduh/config).
-
-If you have a suggestion or spot an error, don't hack me, rather please send a pull request or open an issue on GitHub.
 
 # Domain
 
