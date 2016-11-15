@@ -4,7 +4,7 @@ I like to set up my servers and services in these ways. This guide is **not** me
 
 This guide is written for [Google Compute Engine](https://cloud.google.com/compute/) (GCE), but will very likely work well on other service providers, such as Linode or Amazon AWS, or any computer which will run GNU/Linux, such as an [APU1C](http://www.pcengines.ch/apu1c.htm) in a closet. It uses recommended configuration files from [drduh/config](https://github.com/drduh/config).
 
-If you have a suggestion or spot an error, don't hack me, rather please send a pull request or open an issue on GitHub.
+If you have a suggestion or spot an error, don't hack me, rather please send a [pull request](https://github.com/drduh/Debian-Privacy-Server-Guide/pulls) or [open an issue](https://github.com/drduh/Debian-Privacy-Server-Guide/issues/new) on GitHub.
 
 - [Domain](#domain)
 - [Compute Engine](#compute-engine)
