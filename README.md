@@ -283,6 +283,16 @@ Check the fingerprint on the server from your previous, existing session:
     $ ssh-keygen -lf /etc/ssh/ssh_host_key
     4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
 
+If `ssh` presents a SHA256 fingerprint:
+
+    $ ssh duh
+    Host key fingerprint is SHA256:47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU
+
+Check the fingerprint on the server:
+
+    $ awk '{print $2}' /etc/ssh/ssh_host_key.pub | base64 -d | sha256sum -b | awk '{print $1}' | xxd -r -p | base64
+    47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU
+
 Start `tmux` or reconnect to an existing session.
 
 ### GPG
@@ -581,10 +591,12 @@ Create a temporary download and build directory:
 
     $ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 
+**Note** If this fails for any reason, you likely need a more recent version of [Go](https://debian-administration.org/article/727/Installing_the_Go_programming_language_on_Debian_GNU/Linux).
+
 Confirm it's built:
 
     $ $GOPATH/bin/obfs4proxy -version
-    obfs4proxy-0.0.7-dev
+    obfs4proxy-0.0.8-dev
 
 Install it:
 
