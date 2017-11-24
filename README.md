@@ -153,11 +153,11 @@ Install any important software, for example:
 
 Create a password for the user:
 
-    $ passwd sysadm
+    $ passwd $USER
 
 If you wish to allow use of sudo without a password for [convenience](https://security.stackexchange.com/questions/45712/how-secure-is-nopasswd-in-passwordless-sudo-mode):
 
-    $ echo "sysadm ALL=(ALL) NOPASSWD:ALL" | sudo tee --append /etc/sudoers
+    $ echo "$USER ALL=(ALL) NOPASSWD:ALL" | sudo tee --append /etc/sudoers
 
 Press `Control-D` or type `exit` to logout as root and return to the regular user.
 
@@ -193,7 +193,7 @@ When you reconnect to your instance, simply type `tmux attach -t <session name>`
 
 Set login shell to zsh:
 
-    $ sudo chsh -s /usr/bin/zsh sysadm
+    $ sudo chsh -s /usr/bin/zsh $USER
 
 Edit the [configuration](https://stackoverflow.com/questions/171563/whats-in-your-zshrc):
 
@@ -363,7 +363,7 @@ Sanity check:
     $ wc -l /etc/blacklist
     29247 /etc/blacklist
 
-    $ grep -ve "^127.0.0.1\|^0.0.0.0\|^#" /etc/blacklist | uniq
+    $ grep -ve "^127.0.0.1\|^0.0.0.0\|^#" /etc/blacklist | sort | uniq
     255.255.255.255 broadcasthost
     ::1 localhost
     fe80::1%lo0 localhost
@@ -386,12 +386,12 @@ Check the log to make sure it is running:
 If it fails to start, try running it manually:
 
     $ sudo dnsmasq -C /etc/dnsmasq.conf -d
-    dnsmasq: started, version 2.72 cachesize 2000
-    dnsmasq: compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect
+    dnsmasq: started, version 2.76 cachesize 2000
+    dnsmasq: compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
     dnsmasq: reading /etc/resolv.dnsmasq
     dnsmasq: using nameserver 169.254.169.254#53
-    dnsmasq: read /etc/hosts - 5 addresses
-    dnsmasq: read /etc/blacklist - 26995 addresses
+    dnsmasq: read /etc/hosts - 6 addresses
+    dnsmasq: read /etc/blacklist - 43638 addresses
 
 Query locally for an *A record* to confirm dnsmasq is working:
 
@@ -738,13 +738,13 @@ Or use my [configuration](https://github.com/drduh/config/blob/master/openvpn.co
 
     $ cd ~/pki
 
-    $ openvpn --genkey --secret ta.key
+    $ sudo openvpn --genkey --secret ta.key
 
 Create [Diffie-Hellman key exchange parameters](https://security.stackexchange.com/questions/38206/can-someone-explain-a-little-better-what-exactly-is-accomplished-by-generation-o):
 
     $ cd ~/pki
 
-    $ openssl dhparam -dsaparam -out dh.pem 2048
+    $ openssl dhparam -dsaparam -out dh.pem 4096
 
 Configure certificates from the previous section, or install your own:
 
@@ -809,20 +809,20 @@ Watch the log:
 If it fails, try to start OpenVPN server manually:
 
     $ sudo openvpn --config /etc/openvpn/openvpn.conf --verb 3 --suppress-timestamps
-    OpenVPN 2.3.4 x86_64-pc-linux-gnu [SSL (OpenSSL)] [LZO] [EPOLL] [PKCS11] [MH] [IPv6] built on Nov 12 2015
-    library versions: OpenSSL 1.0.1k 8 Jan 2015, LZO 2.08
-    Diffie-Hellman initialized with 2048 bit key
+    OpenVPN 2.4.0 x86_64-pc-linux-gnu [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [PKCS11] [MH/PKTINFO] [AEAD] built on Jul 18 2017
+    library versions: OpenSSL 1.0.2l  25 May 2017, LZO 2.08
+    Diffie-Hellman initialized with 4096 bit key
     Control Channel Authentication: using '/etc/pki/ta.key' as a OpenVPN static key file
     Outgoing Control Channel Authentication: Using 256 bit message hash 'SHA256' for HMAC authentication
     Incoming Control Channel Authentication: Using 256 bit message hash 'SHA256' for HMAC authentication
-    Socket Buffers: R=[212992->131072] S=[212992->131072]
     ROUTE_GATEWAY 10.240.0.1
     TUN/TAP device tun0 opened
     TUN/TAP TX queue length set to 100
-    do_ifconfig, tt->ipv6=1, tt->did_ifconfig_ipv6_setup=1
+    do_ifconfig, tt->did_ifconfig_ipv6_setup=1
     /sbin/ip link set dev tun0 up mtu 1500
     /sbin/ip addr add dev tun0 10.8.0.1/24 broadcast 10.8.0.255
     /sbin/ip -6 addr add 2001:db8:123::1/64 dev tun0
+    /sbin/ip route add 10.8.0.0/24 via 10.8.0.2
     [...]
     Initialization Sequence Completed
 
@@ -886,7 +886,7 @@ To connect from a Mac, install OpenVPN from [Homebrew](https://github.com/drduh/
 Start OpenVPN:
 
     $ sudo ~/homebrew/sbin/openvpn --config client.ovpn
-    OpenVPN 2.3.10 x86_64-apple-darwin15.2.0 [SSL (OpenSSL)] [LZO] [MH] [IPv6] built on Jan  6 2016
+    OpenVPN 2.4.4 x86_64-apple-darwin16.7.0 [SSL (OpenSSL)] [LZO] [LZ4] [PKCS11] [MH/RECVDA] [AEAD] built on Oct  2 2017
     [...]
     TLS: Initial packet from [AF_INET]104.197.215.107:443, sid=db4ecf82 4e4e4c5b
     VERIFY OK: depth=2, CN=Duh Authority
@@ -930,7 +930,7 @@ Or use my [configuration](https://github.com/drduh/config/blob/master/lighttpd.c
 
 **Note** Lighttpd expects the server private key and certificate to be stored in one file as the `ssl.pemfile` argument:
 
-    $ cat /etc/pki/server.key /etc/pki/server.pem | sudo tee /etc/pki/lighttpd.pem
+    $ sudo cat /etc/pki/server.key /etc/pki/server.pem | sudo tee /etc/pki/lighttpd.pem
 
 You may need to comment out the following line in `/etc/lighttpd/lighttpd.conf` in order to accept requests on Internet-facing interfaces:
 
@@ -989,7 +989,7 @@ Use Diffie-Hellman key exchange parameters from the [Certificate](#certificates)
 
 Or create new parameters:
 
-    $ sudo openssl dhparam -out /etc/pki/dh.pem 2048
+    $ sudo openssl dhparam -out /etc/pki/dh.pem 4096
 
 Copy the server certificate and key from the [Certificate](#certificates) steps:
 
@@ -1047,6 +1047,8 @@ After a little while, check your records:
     $ dig +short srv _xmpp-client._tcp.duh.to
     0 5 5222 duh.to.
 
+### Using
+
 To connect from a Linux client, use an XMPP client like [Profanity](http://profanity.im/) or [agl/xmpp-client](https://github.com/agl/xmpp-client):
 
     $ sudo apt-get -y install profanity
@@ -1071,7 +1073,7 @@ Start the app and sign in. If you receive a warning that the certificate is not 
 
 To start a chat, select the `+` icon and select *New Chat*.
 
-Start OTR by selecting the lock icon and verifying your contact with a Q&A or out of band.
+Start OTR by selecting the lock icon and verifying your contact with a secret question and answer, or out of band (e.g., in person).
 
 To connect from a Mac client, use an XMPP client like [Profanity](http://profanity.im/), [agl/xmpp-client](https://github.com/agl/xmpp-client), or [Adium](https://github.com/drduh/OS-X-Security-and-Privacy-Guide#otr).
 
