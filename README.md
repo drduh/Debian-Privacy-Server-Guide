@@ -33,7 +33,6 @@ If you have a suggestion or spot an error, don't hack me, rather please send a [
     - [Federating](#federating)
 - [Mail](#mail)
 - [Conclusion](#conclusion)
-- [Todo](#todo)
 
 # Domain
 
@@ -66,13 +65,17 @@ If it doesn't look right, log in to Tonic or your registrar and update DNS infor
 
 Go to [VM instances](https://console.cloud.google.com/compute/instances) and select **Create Instance**.
 
-Pick a name, zone and machine type. A standard "1 vCPU" or shared core "f1-micro" or "g1-small" machine with *Debian 8* are fine defaults:
+Pick a name, zone and machine type. A "standard" single-vCPU or even shared "micro" or "small" machine with *Debian 9* are fine defaults:
 
 <img width="400" src="https://cloud.githubusercontent.com/assets/12475110/15526750/bebb0ddc-2223-11e6-8be5-fc8af25bfe77.png">
 
-A Service account is not necessary and can be disabled. Select **Create** to start the instance.
+A **Service account** is not necessary and can be disabled.
 
-After a minute or so, once you have an *External IP* assigned, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
+Select the **Networking** tab and select your pre-configured network, if any. Apply any desired network tags while here, too.
+
+Select **Create** to start the instance.
+
+Once you have an *External IP* assigned, you may want to configure a DNS record. To do so, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
 
 Create an [A record](https://support.dnsimple.com/articles/a-record/) for the domain by selecting **Add Record Set**:
 
@@ -97,7 +100,7 @@ Likewise, there should be [SOA records](https://support.dnsimple.com/articles/so
 
 ## Setup access
 
-Create a new, [4096-bit](http://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into your instance via SSH (pass-phrase is optional):
+Use an existing [YubiKey](https://github.com/drduh/YubiKey-Guide) or create a new [4096-bit](http://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into your instance via SSH (pass-phrase is optional):
 
     $ ssh-keygen -t rsa -b 4096 -C 'sysadm' -f ~/.ssh/duh
 
@@ -145,9 +148,9 @@ Install any pending updates:
 
     # apt-get update && apt-get -y upgrade
 
-Install any important software, for example:
+Install any necessary software, for example:
 
-    # apt-get -y install dnsutils whois git gcc autoconf make lsof curl tcpdump
+    # apt-get -y install dnsutils whois git gcc autoconf make lsof curl tcpdump htop tree
 
 ## Configure passwords
 
@@ -299,7 +302,7 @@ Start `tmux` or reconnect to an existing session.
 
 [GNU Privacy Guard](https://www.gnupg.org/) is used to verify signatures for downloaded software, encrypt and decrypt files, text, email, and much more.
 
-    $ sudo apt-get -y install gnupg gnupg-curl
+    $ sudo apt-get -y install gnupg
 
 Edit the [configuration](https://help.riseup.net/en/security/message-security/openpgp/best-practices):
 
@@ -313,15 +316,15 @@ Or use my [configuration](https://github.com/drduh/config/blob/master/gpg.conf):
 
     $ curl -o ~/.gnupg/gpg.conf https://raw.githubusercontent.com/drduh/config/master/gpg.conf
 
-Install a [keyserver](https://sks-keyservers.net/overview-of-pools.php#pool_hkps) [CA certificate](https://sks-keyservers.net/verify_tls.php):
+**Note** For older versions of GnuPG, install a [keyserver](https://sks-keyservers.net/overview-of-pools.php#pool_hkps) [CA certificate](https://sks-keyservers.net/verify_tls.php):
 
     $ sudo curl -o /etc/sks-keyservers.netCA.pem https://sks-keyservers.net/sks-keyservers.netCA.pem
 
-To symmetrically encrypt a directory:
+To use GPG to symmetrically encrypt a directory into a single file:
 
     $ tar zcvf - ~/backup | gpg -c > ~/backup-$(date +%F-%H%M).tar.gz.gpg
 
-To decrypt:
+To decrypt the file and unpack the directory:
 
     $ gpg -o ~/decrypted-backup.tar.gz -d backup-2016-01-01-0000.tar.gz.gpg && tar zxvf ~/decrypted-backup.tar.gz
 
@@ -358,10 +361,10 @@ Install a DNS [blacklist](https://en.wikipedia.org/wiki/Hosts_(file)) ([alternat
 
     $ curl https://raw.githubusercontent.com/jmdugan/blocklists/master/corporations/facebook/facebook.com | sudo tee --append /etc/blacklist
 
-Sanity check:
+Check the file length and that no non-localhost addresses were appended:
 
     $ wc -l /etc/blacklist
-    29247 /etc/blacklist
+    50741 /etc/blacklist
 
     $ grep -ve "^127.0.0.1\|^0.0.0.0\|^#" /etc/blacklist | sort | uniq
     255.255.255.255 broadcasthost
@@ -448,10 +451,11 @@ Create keys and certificate (see usage instructions on [Cofyc/dnscrypt-wrapper](
     [20300] 01 May 00:00:00.000 [notice] [main.c:405] Generating pre-signed certificate.
     [20300] 01 May 00:00:00.000 [notice] [main.c:412] TXT record for signed-certificate:
     [...]
+    [20300] 01 May 00:00:00.000 [notice] [main.c:566] Certificate stored in 1.cert.
 
 Print the public key fingerprint:
 
-    $ dnscrypt-wrapper --show-provider-publickey-fingerprint --provider-publickey-file public.key
+    $ dnscrypt-wrapper --show-provider-publickey --provider-publickey-file public.key
     Provider public key fingerprint : 390C:...:F93E
 
 Start DNSCrypt server:
@@ -472,7 +476,7 @@ To connect from a Mac or Linux client (using the Provider public key fingerprint
     $ sudo dnscrypt-proxy \
       -a 127.0.0.1:40 -r 104.197.215.107:5355 \
       -k 390C:...:F93E -N 2.dnscrypt-cert.duh.to
-    [NOTICE] Starting dnscrypt-proxy 1.6.0
+    [NOTICE] Starting dnscrypt-proxy 1.9.4
     [INFO] Generating a new session key pair
     [INFO] Done
     [INFO] Server certificate #808441433 received
@@ -481,7 +485,9 @@ To connect from a Mac or Linux client (using the Provider public key fingerprint
     [INFO] Server key fingerprint is 9147:...:212E
     [NOTICE] Proxying from 127.0.0.1:40 to 104.197.215.107:5355
 
-Outgoing DNS packets should be encrypted from the client. For example, take a packet capture while running `dig a google.to @127.0.0.1 -p 40` in another terminal:
+Outgoing DNS packets will now be encrypted from the client.
+
+For example, take a packet capture on the client while running `dig a google.to @127.0.0.1 -p 40` in another terminal:
 
     $ sudo tcpdump -As80 -tni eth0 "udp port 5355"
     listening on eth0, link-type EN10MB (Ethernet), capture size 80 bytes
@@ -507,7 +513,7 @@ Compare with querying [Google Public DNS](https://en.wikipedia.org/wiki/Google_P
     ..%.5.t.>...............google.to..............+.
     ^C
 
-Once DNSCrypt is configured on the client, configure `dnsmasq` or another DNS program on the client to use `127.0.0.1#40` as the upstream resolver.
+Once DNSCrypt is configured on the client, edit `/etc/dnsmasq.conf` and append `server=127.0.0.1#40` to use the local port for DNSCrypt.
 
 ## Privoxy
 
@@ -691,28 +697,37 @@ To create a certificate authority, intermediate authority, server and client cer
 
     $ curl -o ~/pki/pki.sh https://raw.githubusercontent.com/drduh/config/master/pki.sh
 
-Read through and edit the script and variables to your suit your needs:
+Read through and edit the script and variables, especially **CN_** ones, to your suit your needs:
 
     $ vim pki.sh
 
-Make it executable:
+Make the script executable:
 
     $ chmod +x pki.sh
 
-Disable OpenSSL certificate requirements (e.g. must specify location):
+**Optional** Disable default OpenSSL certificate requirements (e.g., do not mandate location):
 
     $ sudo sed -i.bak "s/= match/= optional/g" /usr/lib/ssl/openssl.cnf
 
-Run the script, accepting prompts to sign certificates and commit changes:
+Run the script, accepting prompts with **y** to sign certificates and commit changes. Note any errors in the output:
 
     $ ./pki.sh
 
-This will create private and public keys for a certificate authority, intemediate authority, server and one client:
+If successful, the script created private and public keys for a certificate authority, intemediate authority, server and one client:
 
     $ ls ~/pki
     ca.key      client.csr  demoCA            intermediate.pem  server.cnf  server.pem
     ca.pem      client.key  intermediate.csr  intermediate.srl  server.csr
     client.cnf  client.pem  intermediate.key  pki.sh            server.key
+
+Check any of the certificate files (*.pem* extension) with OpenSSL:
+
+```
+$ openssl x509 -in ca.pem -noout -subject -issuer -enddate
+subject=CN = Example Authority
+issuer=CN = Example Authority
+notAfter=Dec 1 00:00:00 2018 GMT
+```
 
 You could also use [OpenVPN/easy-rsa](https://github.com/OpenVPN/easy-rsa).
 
@@ -768,9 +783,13 @@ Create a [NAT](https://serverfault.com/questions/267286/openvpn-server-will-not-
 
     $ sudo iptables -t nat -A POSTROUTING -o eth0 -s 10.8.0.0/16 -j MASQUERADE
 
-**Optional** Route all VPN Web (port 80) traffic through Privoxy (make sure it's configured to listen on that address, by adding `listen-address 10.8.0.1:8000` to `/etc/privoxy/config`).
+**Optional** Route all HTTP (TCP port 80) traffic through Privoxy.
 
     $ sudo iptables -t nat -A PREROUTING --source 10.8.0.0/16 -p tcp -m tcp --dport 80 -j DNAT --to 10.8.0.1:8000
+    
+    $ echo "listen-address 10.8.0.1:8000" | sudo tee --append /etc/privoxy/config
+    
+    $ sudo service privoxy restart
 
 To make it permanent:
 
@@ -778,7 +797,7 @@ To make it permanent:
 
     $ sudo iptables-save | sudo tee /etc/iptables/rules.v4
 
-If using Dnsmasq, add `listen-address=127.0.0.1,10.8.0.1` to `/etc/dnsmasq.conf`.
+If using Dnsmasq, add `listen-address=127.0.0.1,10.8.0.1` to `/etc/dnsmasq.conf` and restart the service.
 
 **Note** For some reason, IPv6 needs to be manually enabled on GCE first (I haven't figured this out yet, h/t to [this tip](https://ask.openstack.org/en/question/68190/how-do-i-resolve-rtnetlink-permission-denied-error-encountered-while-running-stacksh/)):
 
@@ -1136,11 +1155,3 @@ If you would like to test e-mail or XMPP, feel free to [contact me](http://duh.t
 
     PGP: 011C E16B D45B 27A5 5BA8 776D FF3E 7D88 647E BCDB
     OTR: 53E4 46FF 343D D8C1 F102 FA21 2588 1467 4FCF EEF0
-
-# Todo
-
-* Use [Cloud SDK](https://cloud.google.com/sdk/) command line tools for configuring VM instance
-* Implement on a BSD
-* Sandbox/harden programs
-* Automate software updates
-* Email alerts for low disk space, certificate expiry, etc.
