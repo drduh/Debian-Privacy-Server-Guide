@@ -1080,7 +1080,7 @@ To start a chat, select the `+` icon and select *New Chat*.
 
 Start OTR by selecting the lock icon and verifying your contact with a secret question and answer, or out of band (e.g., in person).
 
-To connect from a Mac client, use an XMPP client like [Profanity](http://profanity.im/), [agl/xmpp-client](https://github.com/agl/xmpp-client), or [Adium](https://github.com/drduh/OS-X-Security-and-Privacy-Guide#otr).
+To connect from a Mac client, use an XMPP client like [Profanity](http://profanity.im/), [agl/xmpp-client](https://github.com/agl/xmpp-client), or [Adium](https://github.com/drduh/macOS-Security-and-Privacy-Guide#otr).
 
 If you can't connect, check for errors in `/var/log/prosody/prosody.err` on the server.
 
@@ -1089,6 +1089,16 @@ Verify the SHA-256 fingerprint matches the certificate you see on the server:
     $ openssl x509 -in /etc/pki/xmpp-cert.pem -fingerprint -noout -sha256
 
 If it matches the fingerprint in the presented certificate prompt, trust it and connect.
+
+To view and verify the XMPP server's certificate fingerprint remotely, use the `openssl` command:
+
+    $ echo -e | openssl s_client -connect duh.to:5222 -starttls xmpp | openssl x509 -noout -fingerprint -sha256 | tr -d ':'
+    [...]
+    SHA256 Fingerprint=9B759D41E3DE30F9D2F902027D792B65D950A98BBB6D6D56BE7F2528453BF8E9
+
+**Note** If using agl/xmpp-client and custom certificates (i.e., not signed by a trusted root CA), you will need to [manually add](https://github.com/agl/xmpp-client/issues/44#issuecomment-39539794) the server's SHA256 fingerprint to `~/.xmpp-client`, like:
+
+    "ServerCertificateSHA256": "9B759D41E3DE30F9D2F902027D792B65D950A98BBB6D6D56BE7F2528453BF8E9"
 
 # Mail
 
