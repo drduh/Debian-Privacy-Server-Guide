@@ -150,11 +150,11 @@ Install any pending updates:
 
 Install any necessary software, for example:
 
-    # apt-get -y install dnsutils whois git gcc autoconf make lsof curl tcpdump htop tree
+    # apt-get -y install zsh vim tmux dnsutils whois git gcc autoconf make lsof tcpdump htop tree
 
 ## Configure passwords
 
-Create a password for the user:
+Set a password for the current user:
 
     $ passwd $USER
 
@@ -169,8 +169,6 @@ Press `Control-D` or type `exit` to logout as root and return to the regular use
 ### tmux
 
 [tmux](https://tmux.github.io/) is a terminal multiplexer. This program will allow you to reconnect to a working terminal session on a remote computer.
-
-    $ sudo apt-get -y install tmux
 
 Edit the [configuration](http://www.hamvocke.com/blog/a-guide-to-customizing-your-tmux-conf/):
 
@@ -192,9 +190,7 @@ When you reconnect to your instance, simply type `tmux attach -t <session name>`
 
 [Z shell](http://www.zsh.org/) is an interactive login shell with many features and improvements over Bourne shell.
 
-    $ sudo apt-get -y install zsh
-
-Set login shell to zsh:
+To set the login shell for the current user to Zsh:
 
     $ sudo chsh -s /usr/bin/zsh $USER
 
@@ -211,8 +207,6 @@ Open a new tmux tab and run `zsh` or start a new `ssh` session to make sure the 
 ### Vim
 
 [Vim](http://www.vim.org/) is an excellent open source text editor. Run `vimtutor` if you have not used Vim before.
-
-    $ sudo apt-get -y install vim
 
 Edit the [configuration](https://stackoverflow.com/questions/164847/what-is-in-your-vimrc):
 
@@ -234,7 +228,7 @@ Use `:q` to quit `:w` to write (save) or `:x` for both.
 
 Take a few steps to harden remote access: declare which users are allowed to log in, change the default listening port and generate a new host key. There are many more in-depth guides online on securing SSH ([1](https://stribika.github.io/2015/01/04/secure-secure-shell.html), [2](https://feeding.cloud.geek.nz/posts/hardening-ssh-servers/), [3](https://wp.kjro.se/2013/09/06/hardening-your-ssh-server-opensshd_config/); these are just basic suggestions:
 
-Create a new host key (do not use a pass-phrase - else you won't be able to reconnect remotely):
+Create a new host key (do not use a pass-phrase - else you won't be able to connect remotely after a reboot):
 
     $ ssh-keygen -t rsa -b 4096 -f ssh_host_key
 
@@ -439,15 +433,13 @@ Create keys and certificate (see usage instructions on [Cofyc/dnscrypt-wrapper](
     [...]
     Keys are stored in public.key & secret.key.
 
-    $ dnscrypt-wrapper --gen-crypt-keypair
-    Generate crypt key pair... ok.
-    Secret key stored in crypt_secret.key
-
     $ dnscrypt-wrapper --gen-crypt-keypair --crypt-secretkey-file=1.key
     Generate crypt key pair... ok.
     Secret key stored in 1.key
 
-    $ dnscrypt-wrapper --gen-cert-file --crypt-secretkey-file=1.key --provider-cert-file=1.cert
+**Note** By default, dnscrypt keys expire after 24 hours.
+
+    $ dnscrypt-wrapper --gen-cert-file --crypt-secretkey-file=1.key --provider-cert-file=1.cert --provider-publickey-file=public.key --provider-secretkey-file=secret.key --cert-file-expire-days=30
     [20300] 01 May 00:00:00.000 [notice] [main.c:405] Generating pre-signed certificate.
     [20300] 01 May 00:00:00.000 [notice] [main.c:412] TXT record for signed-certificate:
     [...]
@@ -458,7 +450,7 @@ Print the public key fingerprint:
     $ dnscrypt-wrapper --show-provider-publickey --provider-publickey-file public.key
     Provider public key fingerprint : 390C:...:F93E
 
-Start DNSCrypt server:
+Start the DNSCrypt server:
 
     $ sudo dnscrypt-wrapper \
         --resolver-address=127.0.0.1:53 --listen-address=0.0.0.0:5355 \
@@ -749,7 +741,7 @@ Or use my [configuration](https://github.com/drduh/config/blob/master/openvpn.co
 
     $ sudo curl -o /etc/openvpn/openvpn.conf https://raw.githubusercontent.com/drduh/config/master/openvpn.conf
 
-**Optional** Generate a [static key](https://openvpn.net/index.php/open-source/documentation/miscellaneous/78-static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
+Generate a [static key](https://openvpn.net/index.php/open-source/documentation/miscellaneous/78-static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
 
     $ cd ~/pki
 
@@ -757,9 +749,7 @@ Or use my [configuration](https://github.com/drduh/config/blob/master/openvpn.co
 
 Create [Diffie-Hellman key exchange parameters](https://security.stackexchange.com/questions/38206/can-someone-explain-a-little-better-what-exactly-is-accomplished-by-generation-o):
 
-    $ cd ~/pki
-
-    $ openssl dhparam -dsaparam -out dh.pem 4096
+    $ openssl dhparam -dsaparam -out ~/pki/dh.pem 4096
 
 Configure certificates from the previous section, or install your own:
 
@@ -797,9 +787,9 @@ To make it permanent:
 
     $ sudo iptables-save | sudo tee /etc/iptables/rules.v4
 
-If using Dnsmasq, add `listen-address=127.0.0.1,10.8.0.1` to `/etc/dnsmasq.conf` and restart the service.
+**Important** If using Dnsmasq, add `listen-address=127.0.0.1,10.8.0.1` to `/etc/dnsmasq.conf` and restart the service.
 
-**Note** For some reason, IPv6 needs to be manually enabled on GCE first (I haven't figured this out yet, h/t to [this tip](https://ask.openstack.org/en/question/68190/how-do-i-resolve-rtnetlink-permission-denied-error-encountered-while-running-stacksh/)):
+**Note** IPv6 may need to be manually disabled on GCE.
 
     $ sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0
 
@@ -863,11 +853,9 @@ From a client, copy `ta.key` from your server:
 
     $ scp duh:~/pki/ta.key ~/vpn
 
-To connect from Linux, install OpenVPN:
+To connect from Linux, install OpenVPN, start it and verify your IP address:
 
     $ sudo apt-get -y install openvpn
-
-Start OpenVPN:
 
     $ cd ~/vpn
 
@@ -885,18 +873,16 @@ Start OpenVPN:
     VERIFY OK: depth=0, CN=duh.to
     [...]
 
-Verify:
-
     $ curl https://icanhazip.com/
     104.197.215.107
 
-To connect from Android, install [OpenVPN Connect](https://play.google.com/store/apps/details?id=net.openvpn.openvpn) from the Play Store.
+To connect from Android, install [OpenVPN Connect](https://play.google.com/store/apps/details?id=net.openvpn.openvpn) from the Google Play Store.
 
-Copy `client.ovpn` and `ta.key` to a folder on your device. They can just be downloaded from a Web browser.
+Copy `client.ovpn` and `ta.key` to a folder on the Android device, using a USB cable or by sharing the files through Google Drive, for example.
 
 Select **Import** > **Import Profile from SD card** and select `client.ovpn`, perhaps in the Download folder.
 
-If the import was successful, select **Connect**.
+If the profile was was successfully imported, select **Connect**.
 
 To connect from a Mac, install OpenVPN from [Homebrew](https://github.com/drduh/OS-X-Security-and-Privacy-Guide#homebrew):
 
@@ -1147,11 +1133,4 @@ Type `?` to see available commands, or read online guides to using Mutt.
 
 Reboot the instance and make sure everything still works. If not, you'll need to automate certain programs to start up on their own (for example, Privoxy will fail to start if OpenVPN does not first create a tunnel interface to bind to).
 
-With this guide, one can set up a fairly secure server with several privacy- and security-enchancing services. The server can be used to circumvent firewalls, provide strong encryption and overall improve your online experience, all for a low monthly cost (average ~$30 per month for a Standard instance.) A domain name also lets you receive email and assign DNS records, which is convenient, but totally optional.
-
-If you would like to test e-mail or XMPP, feel free to [contact me](http://duh.to/pub/):
-
-    doc@duh.to
-
-    PGP: 011C E16B D45B 27A5 5BA8 776D FF3E 7D88 647E BCDB
-    OTR: 53E4 46FF 343D D8C1 F102 FA21 2588 1467 4FCF EEF0
+With this guide, one can set up a fairly secure server with several privacy- and security-enchancing services. The server can be used to circumvent firewalls, provide strong encryption and overall improve your online experience, all for a low monthly cost (average ~$35 per month for a "standard" instance.) A domain name also lets you receive email and assign DNS records, which is convenient, but totally optional.
