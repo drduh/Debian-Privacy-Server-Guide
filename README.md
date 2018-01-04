@@ -228,15 +228,15 @@ Use `:q` to quit `:w` to write (save) or `:x` for both.
 
 Take a few steps to harden remote access: declare which users are allowed to log in, change the default listening port and generate a new host key. There are many more in-depth guides online on securing SSH ([1](https://stribika.github.io/2015/01/04/secure-secure-shell.html), [2](https://feeding.cloud.geek.nz/posts/hardening-ssh-servers/), [3](https://wp.kjro.se/2013/09/06/hardening-your-ssh-server-opensshd_config/); these are just basic suggestions:
 
-Create a new host key (do not use a pass-phrase - else you won't be able to connect remotely after a reboot):
+Create a new host RSA keys (do not use a pass-phrase - else you won't be able to connect remotely after a reboot):
 
-    $ ssh-keygen -t rsa -b 4096 -f ssh_host_key
+    $ ssh-keygen -t rsa -b 4096 -f ssh_host_key -C '' -N ''
 
-Move it into place:
+Move them into place:
 
     $ sudo mv ssh_host_key{,.pub} /etc/ssh
 
-Lock down permissions:
+Lock down file permissions:
 
     $ sudo chown root:root /etc/ssh/ssh_host_key{,.pub}
 
@@ -277,7 +277,7 @@ If you had created a new host key, you'll be asked to verify the new RSA key fin
 
 Check the fingerprint on the server from your previous, existing session:
 
-    $ ssh-keygen -lf /etc/ssh/ssh_host_key
+    $ sudo ssh-keygen -lf /etc/ssh/ssh_host_key
     4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
 
 If `ssh` presents a SHA256 fingerprint:
@@ -296,19 +296,13 @@ Start `tmux` or reconnect to an existing session.
 
 [GNU Privacy Guard](https://www.gnupg.org/) is used to verify signatures for downloaded software, encrypt and decrypt files, text, email, and much more.
 
-    $ sudo apt-get -y install gnupg
-
 Edit the [configuration](https://help.riseup.net/en/security/message-security/openpgp/best-practices):
 
-    $ mkdir ~/.gnupg
-
-    $ vim ~/.gnupg/gpg.conf
+    $ mkdir ~/.gnupg && vim ~/.gnupg/gpg.conf
 
 Or use my [configuration](https://github.com/drduh/config/blob/master/gpg.conf):
 
-    $ mkdir ~/.gnupg
-
-    $ curl -o ~/.gnupg/gpg.conf https://raw.githubusercontent.com/drduh/config/master/gpg.conf
+    $ mkdir ~/.gnupg && curl -o ~/.gnupg/gpg.conf https://raw.githubusercontent.com/drduh/config/master/gpg.conf
 
 **Note** For older versions of GnuPG, install a [keyserver](https://sks-keyservers.net/overview-of-pools.php#pool_hkps) [CA certificate](https://sks-keyservers.net/verify_tls.php):
 
@@ -986,7 +980,7 @@ Or use my [configuration](https://github.com/drduh/config/blob/master/prosody.cf
 
     $ sudo curl -o /etc/prosody/prosody.cfg.lua https://raw.githubusercontent.com/drduh/config/master/prosody.cfg.lua
 
-See also [Advanced ssl config](http://prosody.im/doc/advanced_ssl_config).
+See also [Advanced ssl config](https://prosody.im/doc/advanced_ssl_config).
 
 Use Diffie-Hellman key exchange parameters from the [Certificate](#certificates) steps:
 
@@ -1011,6 +1005,10 @@ Or generate a new self-signed certificate:
     $ openssl req -x509 -newkey rsa:4096 -days 365 -sha256 -subj "/CN=duh.to" \
       -keyout /etc/pki/xmpp-key.pem -nodes -out /etc/pki/xmpp-cert.pem
 
+Set file ownership:
+
+    $ sudo chown prosody:prosody /etc/pki/xmpp-*pem
+
 Restart Prosody:
 
     $ sudo service prosody restart
@@ -1034,7 +1032,7 @@ Create a new user:
 
     $ sudo prosodyctl adduser doc@duh.to
 
-**Note** The domain must match the server certificate common name (*CN_SERVER* in *pki.sh*) - check with `openssl x509 -in /etc/pki/xmpp-cert.pem -noout -subject`.
+**Note** The domain must match the server certificate common name (*CN_SERVER* in *pki.sh*) - check with `openssl x509 -in /etc/pki/xmpp-cert.pem -noout -subject`
 
 ### Federating
 
@@ -1099,6 +1097,8 @@ To view and verify the XMPP server's certificate fingerprint remotely, use the `
 **Note** If using agl/xmpp-client and custom certificates (i.e., not signed by a trusted root CA), you will need to [manually add](https://github.com/agl/xmpp-client/issues/44#issuecomment-39539794) the server's SHA256 fingerprint to `~/.xmpp-client`, like:
 
     "ServerCertificateSHA256": "9B759D41E3DE30F9D2F902027D792B65D950A98BBB6D6D56BE7F2528453BF8E9"
+
+If an error occurs while attempting to connect, ssh to the server and check `/var/log/prosody/prosody.err`.
 
 # Mail
 
