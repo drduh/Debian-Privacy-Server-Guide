@@ -420,20 +420,25 @@ Clone the DNSCrypt-Wrapper repository and install the software:
 
 Create keys and certificate (see usage instructions on [Cofyc/dnscrypt-wrapper](https://github.com/Cofyc/dnscrypt-wrapper) for details):
 
-    $ mkdir ~/dnscrypt && cd ~/dnscrypt
+    $ mkdir ~/dnscrypt-keys && cd ~/dnscrypt-keys
 
-    $ dnscrypt-wrapper --gen-provider-keypair
+    $ dnscrypt-wrapper --gen-provider-keypair \
+      --provider-name=dnscrypt.cloud --ext-address=$(curl -s https://icanhazip.com/)
     Generate provider key pair... ok.
     [...]
     Keys are stored in public.key & secret.key.
+    
+Save the stamp (`sdns:\\...`) parameter and possibly others for older client versions. To use a port other than 443, use https://dnscrypt.info/stamps to update it.
 
     $ dnscrypt-wrapper --gen-crypt-keypair --crypt-secretkey-file=1.key
     Generate crypt key pair... ok.
     Secret key stored in 1.key
 
-**Note** By default, dnscrypt keys expire after 24 hours.
+By default, keys expire after 24 hours - below 30 days are specified.
 
-    $ dnscrypt-wrapper --gen-cert-file --crypt-secretkey-file=1.key --provider-cert-file=1.cert --provider-publickey-file=public.key --provider-secretkey-file=secret.key --cert-file-expire-days=30
+    $ dnscrypt-wrapper --gen-cert-file --crypt-secretkey-file=1.key \
+      --provider-cert-file=1.cert --provider-publickey-file=public.key \
+      --provider-secretkey-file=secret.key --cert-file-expire-days=30
     [20300] 01 May 00:00:00.000 [notice] [main.c:405] Generating pre-signed certificate.
     [20300] 01 May 00:00:00.000 [notice] [main.c:412] TXT record for signed-certificate:
     [...]
@@ -444,20 +449,31 @@ Print the public key fingerprint:
     $ dnscrypt-wrapper --show-provider-publickey --provider-publickey-file public.key
     Provider public key fingerprint : 390C:...:F93E
 
-Start the DNSCrypt server:
+Start the server on port 5355:
 
-    $ sudo dnscrypt-wrapper \
-        --resolver-address=127.0.0.1:53 --listen-address=0.0.0.0:5355 \
-        --provider-name=2.dnscrypt-cert.duh.to \
-        --crypt-secretkey-file=1.key --provider-cert-file=1.cert -V
+    $ sudo dnscrypt-wrapper --resolver-address=127.0.0.1:53 \
+      --listen-address=0.0.0.0:5355 --provider-name=dnscrypt.cloud \
+      --crypt-secretkey-file=1.key --provider-cert-file=1.cert -V
 
-**Note** The provider-name value is *not* encrypted during the connection handshake.
+**Note** The provider-name parameter is **not** encrypted during the connection handshake.
 
 Update Networking firewall rules to allow the new dnscrypt listening port (in this example, UDP port 5355).
 
 **Optional** Restrict the IP address or range of addresses which can access your VM instance to prevent abuse and [DNS attacks](http://resources.infosecinstitute.com/attacks-over-dns/).
 
-To connect from a Mac or Linux client (using the Provider public key fingerprint from above):
+To connect from a client, edit `dnscrypt-proxy.toml` to include the static server stamp, like:
+
+    listen_addresses = ['127.0.0.1:40']
+    server_names = ['abc']
+    [static]
+      [static.'abc']
+      stamp = 'sdns://AQAAAAAAAAAAEj...ZA'
+
+Then start the client manually or install it as a service:
+
+    $ sudo ./dnscrypt-proxy -service start
+
+Or on older versions of dnscrypt-proxy:
 
     $ sudo dnscrypt-proxy \
       -a 127.0.0.1:40 -r 104.197.215.107:5355 \
