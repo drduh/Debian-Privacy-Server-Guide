@@ -1086,7 +1086,7 @@ To start OTR, type `/otr start` - Profanity will show *OTR session started (untr
 
 To authenticate your chat partner, type `/otr question foo? bar` where `bar` is an answer to `foo?` which only the person you assume to be speaking with can answer. If the person answers correctly, Profanity will show *Authentication successful* followed by *OTR session trusted* - now you can be sure the connection is encrypted and authenticated.
 
-To connect from an Android client, use an XMPP client like [Conversations](https://conversations.im/) or [Chat Secure](https://play.google.com/store/apps/details?id=info.guardianproject.otr.app.im).
+To connect from an Android client, use an XMPP client like ~~[Conversations](https://conversations.im/)~~ (do not use the Conversations app - its quality is [dubious](https://github.com/siacs/Conversations/issues/2908) and author's intentions are questionable) or [Chat Secure](https://play.google.com/store/apps/details?id=info.guardianproject.otr.app.im).
 
 Start the app and sign in. If you receive a warning that the certificate is not signed by a known authority, verify it using the step below.
 
