@@ -394,8 +394,6 @@ Query locally for an *A record* to confirm dnsmasq is working:
     74.125.202.147
     74.125.202.106
 
-Remember to remove the `log-queries` option from `/etc/dnsmasq.conf` to disable DNS request/answer logging.
-
 ## DNSCrypt
 
 [DNSCrypt](https://dnscrypt.org/) software can be used as a server and client to encrypt DNS traffic.
@@ -469,9 +467,19 @@ To connect from a client, edit `dnscrypt-proxy.toml` to include the static serve
       [static.'abc']
       stamp = 'sdns://AQAAAAAAAAAAEj...ZA'
 
-Then start the client manually or install it as a service:
+Then start the client manually:
 
-    $ sudo ./dnscrypt-proxy -service start
+    $ sudo ./dnscrypt-proxy
+    [NOTICE] dnscrypt-proxy 2.0.11
+    [NOTICE] Now listening to 127.0.0.1:5355 [UDP]
+    [NOTICE] Now listening to 127.0.0.1:5355 [TCP]
+    [NOTICE] [abc] OK (crypto v1) - rtt: 10ms
+    [NOTICE] Server with the lowest initial latency: abc (rtt: 10ms)
+    [NOTICE] dnscrypt-proxy is ready - live servers: 1
+
+Or install it as a service:
+
+    $ sudo ./dnscrypt-proxy -service install
 
 Or on older versions of dnscrypt-proxy:
 
@@ -699,7 +707,7 @@ To create a certificate authority, intermediate authority, server and client cer
 
     $ curl -o ~/pki/pki.sh https://raw.githubusercontent.com/drduh/config/master/pki.sh
 
-Read through and edit the script and variables, especially **CN_** ones, to your suit your needs:
+Read through and edit the script and variables, especially `CN_` ones, to your suit your needs:
 
     $ vim pki.sh
 
@@ -707,13 +715,18 @@ Make the script executable:
 
     $ chmod +x pki.sh
 
-**Optional** Disable default OpenSSL certificate requirements (e.g., do not mandate location):
+**Optional** Disable default OpenSSL certificate requirements, like mandatory location:
 
     $ sudo sed -i.bak "s/= match/= optional/g" /usr/lib/ssl/openssl.cnf
 
-Run the script, accepting prompts with **y** to sign certificates and commit changes. Note any errors in the output:
+Run the script, accepting prompts with `y` to sign certificates and commit changes:
 
     $ ./pki.sh
+    Generating RSA private key, 4096 bit long modulus
+    ........................................................................++
+    .....................................++
+    [...]
+    Sign the certificate? [y/n]:y
 
 If successful, the script created private and public keys for a certificate authority, intemediate authority, server and one client:
 
@@ -722,7 +735,7 @@ If successful, the script created private and public keys for a certificate auth
     ca.pem      client.key  intermediate.csr  intermediate.srl  server.csr
     client.cnf  client.pem  intermediate.key  pki.sh            server.key
 
-Check any of the certificate files (*.pem* extension) with OpenSSL:
+Check any of the certificate files (`.pem` extension) with OpenSSL:
 
 ```
 $ openssl x509 -in ca.pem -noout -subject -issuer -enddate
@@ -797,15 +810,11 @@ To make it permanent:
 
     $ sudo iptables-save | sudo tee /etc/iptables/rules.v4
 
-**Important** If using Dnsmasq, add `listen-address=127.0.0.1,10.8.0.1` to `/etc/dnsmasq.conf` and restart the service.
+If using Dnsmasq, append `10.8.0.1` as a listening address:
 
-**Note** IPv6 may need to be manually disabled on GCE.
+    $ sudo sed -i.bak "s/listen-address=127.0.0.1/listen-address=127.0.0.1,10.8.0.1/g" /etc/dnsmasq.conf
 
-    $ sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0
-
-To make it permanent:
-
-    $ echo "net.ipv6.conf.all.disable_ipv6 = 0" | sudo tee --append /etc/sysctl.conf
+    $ sudo service dnsmasq restart
 
 Restart the service:
 
@@ -857,13 +866,15 @@ Or use my [configuration](https://github.com/drduh/config/blob/master/client.ovp
 
     $ curl -o ~/vpn/client.ovpn https://raw.githubusercontent.com/drduh/config/master/client.ovpn
 
-Edit the configuration to define the server hostname. Insert `ca.pem`, `client.pem`, `client.key` contents in appropriate fields: *ca*, *cert* and *key*.
+Add the CA certificate, client certificate and client key material to the configuration:
+
+    $ (echo "<ca>" ; cat ~/pki/ca.pem ; echo "</ca>\n<cert>" ; cat ~/pki/client.pem; echo "</cert>\n<key>" ; cat ~/pki/client.key ; echo "</key>") >> client.ovpn
 
 From a client, copy `ta.key` from your server:
 
     $ scp duh:~/pki/ta.key ~/vpn
 
-To connect from Linux, install OpenVPN, start it and verify your IP address:
+To connect from Linux, install OpenVPN and start it:
 
     $ sudo apt-get -y install openvpn
 
@@ -883,10 +894,17 @@ To connect from Linux, install OpenVPN, start it and verify your IP address:
     VERIFY OK: depth=0, CN=duh.to
     [...]
 
-    $ curl https://icanhazip.com/
-    104.197.215.107
+Verify your local IP address is the same as your server:
 
-To connect from Android, install [OpenVPN Connect](https://play.google.com/store/apps/details?id=net.openvpn.openvpn) from the Google Play Store.
+    $ curl -4 https://icanhazip.com/
+    104.197.215.107
+    
+**Note** If IPv6 is disabled, the connection may fail - you'll need to disable these options on the server to connect:
+
+    #server-ipv6 2001:db8:123::/64
+    #push "route-ipv6 2000::/3"
+
+To connect from Android, install [OpenVPN Connect](https://play.google.com/store/apps/details?id=net.openvpn.openvpn).
 
 Copy `client.ovpn` and `ta.key` to a folder on the Android device, using a USB cable or by sharing the files through Google Drive, for example.
 
