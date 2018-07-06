@@ -24,6 +24,7 @@ If you have a suggestion or spot an error, don't hack me, rather please send a [
   - [DNSCrypt](#dnscrypt)
   - [Privoxy](#privoxy)
   - [Tor](#tor)
+    - [DNS over Tor](#dns-over-tor)
     - [Obfuscation](#obfuscation)
     - [Hidden Service](#hidden-service)
   - [Certificates](#certificates)
@@ -589,6 +590,14 @@ Watch Privoxy logs (you may wish to disable logging by removing `debug` lines in
     $ sudo apt-get -y install tor
 
 **Optional** Install and configure [anonymizing relay monitor (arm)](https://www.atagar.com/arm/), a terminal-based status monitor for Tor.
+
+### DNS over Tor
+
+Tor can listen locally to resolve DNS A, AAAA and PTR records anonymously. To use, add a local address to `/etc/tor/torrc`:
+    
+    DNSPort 127.26.255.1:53
+
+Then append `server=127.26.255.1` to `/etc/dnsmasq.conf` and restart both services.
 
 ### Obfuscation
 
