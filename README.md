@@ -873,7 +873,9 @@ If it fails, try to start OpenVPN server manually:
     [...]
     Initialization Sequence Completed
 
-Update Networking firewall rules to allow the new VPN listening port (in this case, UDP port 443)
+If OpenVPN still fails due to unknown ciphers, you may need to install a newer OpenVPN server version - see [OpenvpnSoftwareRepos](https://community.openvpn.net/openvpn/wiki/OpenvpnSoftwareRepos).
+
+Update the remote instance's firewall rules to allow the new VPN listening port (in this case, UDP port 443)
 
 For each connecting device, edit a [client configuration](https://openvpn.net/index.php/open-source/documentation/howto.html#client):
 
