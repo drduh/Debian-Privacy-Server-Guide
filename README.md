@@ -718,7 +718,9 @@ To generate a specific .onion hostname, [some](https://security.stackexchange.co
 
 Create your own [public-key infrastructure](https://security.stackexchange.com/questions/87564/how-does-ssl-tls-pki-work), so that you may use your own keys and certificates for VPN, HTTPS, etc.
 
-To create a certificate authority, intermediate authority, server and client certificates, download [my script](https://github.com/drduh/config/blob/master/pki.sh) (run on a trusted client machine, preferably [air-gapped](https://en.wikipedia.org/wiki/Air_gap_(networking))):
+To create a certificate authority, intermediate authority, server and client certificates, download the following [script](https://github.com/drduh/config/blob/master/pki.sh).
+
+It is recommended running the script to generate keys client-side, in a trusted computing environment, preferably [air-gapped](https://en.wikipedia.org/wiki/Air_gap_(networking)).
 
     $ mkdir ~/pki && cd ~/pki
 
@@ -732,7 +734,7 @@ Make the script executable:
 
     $ chmod +x pki.sh
 
-**Optional** Disable default OpenSSL certificate requirements, like mandatory location:
+**Optional** Disable default OpenSSL certificate requirements, like mandatory location fields:
 
     $ sudo sed -i.bak "s/= match/= optional/g" /usr/lib/ssl/openssl.cnf
 
@@ -745,7 +747,7 @@ Run the script, accepting prompts with `y` to sign certificates and commit chang
     [...]
     Sign the certificate? [y/n]:y
 
-If successful, the script created private and public keys for a certificate authority, intemediate authority, server and one client:
+If there were no errors, the script created private and public keys for a certificate authority, intemediate authority, server and one client:
 
     $ ls ~/pki
     ca.key      client.csr  demoCA            intermediate.pem  server.cnf  server.pem
@@ -769,7 +771,7 @@ You could also purchase [trusted certificates](https://en.wikipedia.org/wiki/Dig
 
 [OpenVPN](https://openvpn.net/index.php/open-source/downloads.html) is free, open source TLS-based VPN server and client software.
 
-Install OpenVPN:
+Starting with the client, install OpenVPN:
 
     $ sudo apt-get -y install openvpn
 
@@ -781,21 +783,21 @@ Or use my [configuration](https://github.com/drduh/config/blob/master/openvpn.co
 
     $ sudo curl -o /etc/openvpn/openvpn.conf https://raw.githubusercontent.com/drduh/config/master/openvpn.conf
 
-Generate a [static key](https://openvpn.net/index.php/open-source/documentation/miscellaneous/78-static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
-
-    $ cd ~/pki
+Preferably on the client-side, generate a [static key](https://openvpn.net/index.php/open-source/documentation/miscellaneous/78-static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
 
     $ sudo openvpn --genkey --secret ta.key
 
 Create [Diffie-Hellman key exchange parameters](https://security.stackexchange.com/questions/38206/can-someone-explain-a-little-better-what-exactly-is-accomplished-by-generation-o):
 
-    $ openssl dhparam -dsaparam -out ~/pki/dh.pem 4096
+    $ openssl dhparam -dsaparam -out dh.pem 4096
 
-Configure certificates from the previous section, or install your own:
+Copy these files and certificates from the previous section to the server (note, the only *private* key sent is for the server itself):
+
+    $ scp ta.key dh.pem ca.pem intermediate.pem server.pem server.key duh:~
+
+On the server-side, the files:
 
     $ sudo mkdir /etc/pki
-
-    $ cd ~/pki
 
     $ cat ca.pem intermediate.pem > chain.pem
 
