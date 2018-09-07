@@ -278,7 +278,7 @@ If you had created a new host key, you'll be asked to verify the new RSA key fin
 
 Check the fingerprint on the server from your previous, existing session:
 
-    $ sudo ssh-keygen -lf /etc/ssh/ssh_host_key
+    $ ssh-keygen -lf /etc/ssh/ssh_host_key.pub
     4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
 
 If `ssh` presents a SHA256 fingerprint:
@@ -288,8 +288,16 @@ If `ssh` presents a SHA256 fingerprint:
 
 Check the fingerprint on the server:
 
+    $ ssh-keygen -E sha256 -lf /etc/ssh/ssh_host_key.pub
+    4096 SHA256:47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU no comment (RSA)
+
     $ awk '{print $2}' /etc/ssh/ssh_host_key.pub | base64 -d | sha256sum -b | awk '{print $1}' | xxd -r -p | base64
     47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU
+    
+To get the MD5 hash of the key fingerprint:
+
+    $ ssh-keygen -E md5 -lf /etc/ssh/ssh_host_key.pub
+    4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
 
 Start `tmux` or reconnect to an existing session.
 
