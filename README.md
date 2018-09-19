@@ -855,7 +855,7 @@ Watch the log:
 
 If it fails, try to start OpenVPN server manually:
 
-    $ sudo openvpn --config /etc/openvpn/serverl.ovpn --verb 3 --suppress-timestamps
+    $ sudo openvpn --config /etc/openvpn/server.ovpn --verb 3 --suppress-timestamps
     OpenVPN 2.4.0 x86_64-pc-linux-gnu [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [PKCS11] [MH/PKTINFO] [AEAD] built on Jul 18 2017
     library versions: OpenSSL 1.0.2l  25 May 2017, LZO 2.08
     Diffie-Hellman initialized with 4096 bit key
