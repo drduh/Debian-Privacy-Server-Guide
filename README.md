@@ -777,11 +777,11 @@ Starting with the client, install OpenVPN:
 
 Edit the [configuration](https://openvpn.net/index.php/open-source/documentation/howto.html#server):
 
-    $ sudo -E vim /etc/openvpn/openvpn.conf
+    $ sudo -E vim /etc/openvpn/server.ovpn
 
-Or use my [configuration](https://github.com/drduh/config/blob/master/openvpn.conf):
+Or use my [configuration](https://github.com/drduh/config/blob/master/server.ovpn):
 
-    $ sudo curl -o /etc/openvpn/openvpn.conf https://raw.githubusercontent.com/drduh/config/master/openvpn.conf
+    $ sudo curl -o /etc/openvpn/server.ovpn https://raw.githubusercontent.com/drduh/config/master/server.ovpn
 
 Preferably on the client-side, generate a [static key](https://openvpn.net/index.php/open-source/documentation/miscellaneous/78-static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
 
@@ -855,7 +855,7 @@ Watch the log:
 
 If it fails, try to start OpenVPN server manually:
 
-    $ sudo openvpn --config /etc/openvpn/openvpn.conf --verb 3 --suppress-timestamps
+    $ sudo openvpn --config /etc/openvpn/serverl.ovpn --verb 3 --suppress-timestamps
     OpenVPN 2.4.0 x86_64-pc-linux-gnu [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [PKCS11] [MH/PKTINFO] [AEAD] built on Jul 18 2017
     library versions: OpenSSL 1.0.2l  25 May 2017, LZO 2.08
     Diffie-Hellman initialized with 4096 bit key
