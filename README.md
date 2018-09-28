@@ -405,7 +405,7 @@ Query locally for an *A record* to confirm dnsmasq is working:
 
 ## DNSCrypt
 
-[DNSCrypt](https://dnscrypt.org/) software can be used as a server and client to encrypt DNS traffic.
+[DNSCrypt](https://dnscrypt.info/) software can be used as a server and client to encrypt DNS traffic, as well as filter and shape queries.
 
 > If you are running your own private or public recursive DNS server, adding support for the DNSCrypt protocol requires installing [DNSCrypt-Wrapper](https://github.com/Cofyc/dnscrypt-wrapper), the server-side DNSCrypt proxy.
 
@@ -468,13 +468,15 @@ Update Networking firewall rules to allow the new dnscrypt listening port (in th
 
 **Optional** Restrict the IP address or range of addresses which can access your VM instance to prevent abuse and [DNS attacks](http://resources.infosecinstitute.com/attacks-over-dns/).
 
-To connect from a client, edit `dnscrypt-proxy.toml` to include the static server stamp, like:
+To connect from a client, edit `dnscrypt-proxy.toml` to include the static server stamp:
 
     listen_addresses = ['127.0.0.1:40']
     server_names = ['abc']
     [static]
       [static.'abc']
       stamp = 'sdns://AQAAAAAAAAAAEj...ZA'
+
+Reference [drduh/config/dnscrypt-proxy.toml](https://github.com/drduh/config/blob/master/dnscrypt-proxy.toml) and [jedisct1/dnscrypt-proxy/example-dnscrypt-proxy.toml](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-proxy/example-dnscrypt-proxy.toml) for more options.
 
 Then start the client manually:
 
