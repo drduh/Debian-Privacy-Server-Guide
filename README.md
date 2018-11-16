@@ -22,6 +22,7 @@ If you have a suggestion or spot an error, don't hack me, rather please send a [
 - [Services](#services)
   - [Dnsmasq](#dnsmasq)
   - [DNSCrypt](#dnscrypt)
+    - [Blacklist](#blacklist)
   - [Privoxy](#privoxy)
   - [Tor](#tor)
     - [DNS over Tor](#dns-over-tor)
@@ -64,7 +65,16 @@ If it doesn't look right, log in to Tonic or your registrar and update DNS infor
 
 **Optional** You may want to first [Create a network](https://console.cloud.google.com/networking/networks/add) to define firewall rules later, else the default rule set will be used.
 
-Go to [VM instances](https://console.cloud.google.com/compute/instances) and select **Create Instance**.
+To create an instance using the [command line tool](https://cloud.google.com/sdk/gcloud/):
+
+    $ gcloud beta compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --subnet=$NETWORK \
+      --machine-type=n1-standard-1 --network-tier=PREMIUM --can-ip-forward --no-restart-on-failure --maintenance-policy=TERMINATE \
+      --no-service-account --no-scopes --image=debian-9-stretch-v20180911 --image-project=debian-cloud \
+      --boot-disk-size=10GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
+
+Be sure to set the `PROJECT`, `INSTANCE`, `ZONE`, and `NETWORK` variables, as well as a recent image version.
+
+Or by using the Web UI, navigate to [VM instances](https://console.cloud.google.com/compute/instances) and select **Create Instance**.
 
 Pick a name, zone and machine type. A "standard" single-vCPU or even shared "micro" or "small" machine with *Debian 9* are fine defaults:
 
@@ -413,16 +423,12 @@ To configure a private or public DNSCrypt server, first install [libsodium](http
 
     $ sudo apt-get -y install libsodium-dev libevent-dev
 
-Clone the DNSCrypt-Wrapper repository and install the software:
+Clone the DNSCrypt-Wrapper repository, make and install the software:
 
     $ git clone --recursive git://github.com/Cofyc/dnscrypt-wrapper.git
-
     $ cd dnscrypt-wrapper
-
     $ make configure
-
     $ ./configure
-
     $ sudo make install
 
 Create keys and certificate (see usage instructions on [Cofyc/dnscrypt-wrapper](https://github.com/Cofyc/dnscrypt-wrapper) for details):
@@ -441,7 +447,7 @@ Save the stamp (`sdns:\\...`) parameter and possibly others for older client ver
     Generate crypt key pair... ok.
     Secret key stored in 1.key
 
-By default, keys expire after 24 hours - below 30 days are specified.
+By default, keys expire after 24 hours - 30 days are specified in the command below:
 
     $ dnscrypt-wrapper --gen-cert-file --crypt-secretkey-file=1.key \
       --provider-cert-file=1.cert --provider-publickey-file=public.key \
@@ -536,6 +542,29 @@ Compare with querying [Google Public DNS](https://en.wikipedia.org/wiki/Google_P
 
 Once DNSCrypt is configured on the client, edit `/etc/dnsmasq.conf` and append `server=127.0.0.1#40` to use the local port for DNSCrypt.
 
+### Blacklist
+
+DNSCrypt supports [query blocking](https://github.com/jedisct1/dnscrypt-proxy/wiki/Public-blacklists) with regular expression matching.
+
+Clone the [dnscrypt-proxy repository](https://github.com/jedisct1/dnscrypt-proxy) and use the included Python script to generate a list, then configure dnscrypt to use it.
+
+    $ cd ~/git/dnscrypt-proxy/utils/generate-domains-blacklists
+
+    $ python2 generate-domains-blacklist.py > blacklist
+    Loading data from [file:domains-blacklist-local-additions.txt]
+    Loading data from [https://easylist-downloads.adblockplus.org/antiadblockfilters.txt]
+    Loading data from [https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt]
+    ...
+    Loading data from [https://raw.githubusercontent.com/notracking/hosts-blocklists/master/domains.txt]
+    Loading data from [file:domains-time-restricted.txt]
+    Loading data from [file:domains-whitelist.txt]
+
+    $ mv blacklist ~/build/linux-x86_64/blacklist.txt
+
+    $ wc -l blacklist.txt
+    117838 blacklist.txt
+
+
 ## Privoxy
 
 [Privoxy](https://www.privoxy.org/) is a non-caching web proxy with advanced filtering capabilities for enhancing privacy, modifying web page data and HTTP headers, controlling access, and removing ads and other obnoxious Internet junk.
@@ -585,7 +614,6 @@ In another client terminal:
 
     $ curl --proxy socks5h://127.0.0.1:7000 https://icanhazip.com/
     104.197.215.107
-
 
 Watch Privoxy logs (you may wish to disable logging by removing `debug` lines in `/etc/privoxy/config`):
 
