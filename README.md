@@ -470,6 +470,8 @@ Start the server on port 5355:
 
 **Note** The provider-name parameter is **not** encrypted during the connection handshake.
 
+The steps to generate dnscrypt-wrapper keys and start the server can be automated with a script like [drduh/config/scripts/dnscrypt.sh](https://github.com/drduh/config/blob/master/scripts/dnscrypt.sh).
+
 Update Networking firewall rules to allow the new dnscrypt listening port (in this example, UDP port 5355).
 
 **Optional** Restrict the IP address or range of addresses which can access your VM instance to prevent abuse and [DNS attacks](http://resources.infosecinstitute.com/attacks-over-dns/).
@@ -748,13 +750,13 @@ To generate a specific .onion hostname, [some](https://security.stackexchange.co
 
 Create your own [public-key infrastructure](https://security.stackexchange.com/questions/87564/how-does-ssl-tls-pki-work), so that you may use your own keys and certificates for VPN, HTTPS, etc.
 
-To create a certificate authority, intermediate authority, server and client certificates, download the following [script](https://github.com/drduh/config/blob/master/pki.sh).
+To create a certificate authority, intermediate authority, server and client certificates, download the following [script](https://github.com/drduh/config/blob/master/scripts/pki.sh).
 
 It is recommended running the script to generate keys client-side, in a trusted computing environment, preferably [air-gapped](https://en.wikipedia.org/wiki/Air_gap_(networking)).
 
     $ mkdir ~/pki && cd ~/pki
 
-    $ curl -o ~/pki/pki.sh https://raw.githubusercontent.com/drduh/config/master/pki.sh
+    $ curl -o ~/pki/pki.sh https://raw.githubusercontent.com/drduh/config/master/scripts/pki.sh
 
 Read through and edit the script and variables, especially `CN_` ones, to your suit your needs:
 
@@ -1047,8 +1049,6 @@ Once Lighttpd is running, request a page from your server in a Web browser or by
 
 You can use [client certificates](https://security.stackexchange.com/questions/14589/advantages-of-client-certificates-for-client-authentication) as a means of authentication and authorization, rather than relying on user-provided passwords. See my Lighttpd [configuration](https://github.com/drduh/config/blob/master/lighttpd.conf) for an example.
 
-See also [ioerror/duraconf/configs/lighttpd/lighttpd.conf](https://github.com/ioerror/duraconf/blob/master/configs/lighttpd/lighttpd.conf).
-
 ## XMPP
 
 Run your own [XMPP](https://en.wikipedia.org/wiki/XMPP) chat server with [Prosody](https://prosody.im/). Client can use [Off The Record (OTR) messaging](https://otr.cypherpunks.ca/), a form of secure messaging which includes encryption, authentication, deniability and perfect forward secrecy, to communicate privately.
@@ -1208,7 +1208,11 @@ To install Mutt:
 
     $ sudo apt-get -y install mutt
 
-Edit the [configuration](http://muttrcbuilder.org/):
+Download my [configuration](https://github.com/drduh/config/blob/master/muttrc):
+
+    $ curl -o ~/.muttrc https://raw.githubusercontent.com/drduh/config/master/muttrc
+
+Or edit the [configuration](http://muttrcbuilder.org/) manually:
 
     $ vim ~/.muttrc
 
@@ -1229,3 +1233,5 @@ Type `?` to see available commands, or read online guides to using Mutt.
 Reboot the instance and make sure everything still works. If not, you'll need to automate certain programs to start up on their own (for example, Privoxy will fail to start if OpenVPN does not first create a tunnel interface to bind to).
 
 With this guide, one can set up a fairly secure server with several privacy- and security-enchancing services. The server can be used to circumvent firewalls, provide strong encryption and overall improve your online experience, all for a low monthly cost (average ~$35 per month for a "standard" instance.) A domain name also lets you receive email and assign DNS records, which is convenient, but totally optional.
+
+To save money, consider using [Preemptible VM instances](https://cloud.google.com/compute/docs/instances/preemptible) which can be started right back up with a script.
