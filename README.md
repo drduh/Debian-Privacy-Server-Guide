@@ -2,41 +2,45 @@ This is a step-by-step guide to configuring and managing a domain, remote server
 
 I like to set up my servers and services in these ways. This guide is **not** meant to be a canonical guide on best practices. I am **not** responsible for anything you do nor break by following any of these steps.
 
-This guide is written for [Google Compute Engine](https://cloud.google.com/compute/) (GCE), but will very likely work well on other service providers, such as Linode or Amazon AWS, or any computer which will run GNU/Linux, such as an [APU1C](http://www.pcengines.ch/apu1c.htm) in a closet. It uses recommended configuration files from [drduh/config](https://github.com/drduh/config).
+This guide is written for [Google Compute Engine](https://cloud.google.com/compute/) (GCE), but will very likely work well on other service providers, such as Linode or Amazon AWS, or any computer which will run GNU/Linux, such as a PC Engines [APU](http://www.pcengines.ch/apu1c.htm) in a closet. It uses recommended configuration files from [drduh/config](https://github.com/drduh/config).
 
 If you have a suggestion or spot an error, don't hack me, rather please send a [pull request](https://github.com/drduh/Debian-Privacy-Server-Guide/pulls) or [open an issue](https://github.com/drduh/Debian-Privacy-Server-Guide/issues/new) on GitHub.
 
-- [Domain](#domain)
-- [Compute Engine](#compute-engine)
-  - [Create instance](#create-instance)
-  - [Setup access](#setup-access)
-  - [Connect](#connect)
-  - [Apply updates](#apply-updates)
-  - [Configure passwords](#configure-passwords)
-  - [Configure instance](#configure-instance)
-    - [tmux](#tmux)
-    - [Zsh](#zsh)
-    - [Vim](#vim)
-    - [SSH](#ssh)
-    - [GPG](#gpg)
+- [Domain name](#domain-name)
+- [Server setup](#server-setup)
+  * [Create instance](#create-instance)
+    + [Command-line](#command-line)
+    + [Web UI](#web-ui)
+  * [(Optional) Update domain records](#-optional--update-domain-records)
+  * [Setup access](#setup-access)
+  * [Connect](#connect)
+  * [Apply updates](#apply-updates)
+  * [Configure password](#configure-password)
+  * [Configure instance](#configure-instance)
+    + [tmux](#tmux)
+    + [Zsh](#zsh)
+    + [Vim](#vim)
+    + [SSH](#ssh)
+    + [GPG](#gpg)
 - [Services](#services)
-  - [Dnsmasq](#dnsmasq)
-  - [DNSCrypt](#dnscrypt)
-    - [Blacklist](#blacklist)
-  - [Privoxy](#privoxy)
-  - [Tor](#tor)
-    - [DNS over Tor](#dns-over-tor)
-    - [Obfuscation](#obfuscation)
-    - [Hidden Service](#hidden-service)
-  - [Certificates](#certificates)
-  - [OpenVPN](#openvpn)
-  - [Web Server](#web-server)
-  - [XMPP](#xmpp)
-    - [Federating](#federating)
+  * [Dnsmasq](#dnsmasq)
+  * [DNSCrypt](#dnscrypt)
+    + [Blacklist](#blacklist)
+  * [Privoxy](#privoxy)
+  * [Tor](#tor)
+    + [DNS over Tor](#dns-over-tor)
+    + [Obfuscation](#obfuscation)
+    + [Hidden Service](#hidden-service)
+  * [Certificates](#certificates)
+  * [OpenVPN](#openvpn)
+  * [Web Server](#web-server)
+  * [XMPP](#xmpp)
+    + [Federating](#federating)
+    + [Using](#using)
 - [Mail](#mail)
 - [Conclusion](#conclusion)
 
-# Domain
+# Domain name
 
 If you are not sure what a domain name is, see the [Wikipedia article](https://en.wikipedia.org/wiki/Domain_name) and decide if you would like to create one at all.
 
@@ -59,22 +63,45 @@ Eventually, a [WHOIS lookup](https://whois.icann.org/en/technical-overview) will
 
 If it doesn't look right, log in to Tonic or your registrar and update DNS information accordingly.
 
-# Compute Engine
+# Server setup
 
 ## Create instance
 
-**Optional** You may want to first [Create a network](https://console.cloud.google.com/networking/networks/add) to define firewall rules later, else the default rule set will be used.
+### Command-line
 
-To create an instance using the [command line tool](https://cloud.google.com/sdk/gcloud/):
+Download the gcloud [command line tool](https://cloud.google.com/sdk/gcloud/).
 
+Create a dedicated network:
+
+    $ gcloud beta compute networks create debian-privsec-net
+
+Create an instance:
+
+    $ PROJECT=debian-privsec-cloud
+    $ INSTANCE=debian-privsec-standard
+    $ NETWORK=debian-privsec-net
+    $ ZONE=us-east1-a
     $ gcloud beta compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --subnet=$NETWORK \
       --machine-type=n1-standard-1 --network-tier=PREMIUM --can-ip-forward --no-restart-on-failure --maintenance-policy=TERMINATE \
-      --no-service-account --no-scopes --image=debian-9-stretch-v20180911 --image-project=debian-cloud \
-      --boot-disk-size=10GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
+      --no-service-account --no-scopes --image=debian-9-stretch-v20181113 --image-project=debian-cloud \
+      --boot-disk-size=40GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
 
-Be sure to set the `PROJECT`, `INSTANCE`, `ZONE`, and `NETWORK` variables, as well as a recent image version.
+Be sure to set the `PROJECT`, `INSTANCE`, `[ZONE](https://cloud.google.com/compute/docs/regions-zones/)`, and `NETWORK` variables, as well as a recent image version:
 
-Or by using the Web UI, navigate to [VM instances](https://console.cloud.google.com/compute/instances) and select **Create Instance**.
+    $  gcloud beta compute images list | grep debian
+    debian-9-stretch-v20181113  debian-cloud  debian-9  READY
+
+Add a rule for remote access:
+
+    $ gcloud compute firewall-rules create ssh-port-22 \
+      --network debian-privsec-net --allow tcp:22 \
+      --source-ranges $(curl -s https://icanhazip.com)
+
+### Web UI
+
+First, [create a network](https://console.cloud.google.com/networking/networks/add) to define the firewall policy later.
+
+Navigate to [VM instances](https://console.cloud.google.com/compute/instances) and select **Create Instance**.
 
 Pick a name, zone and machine type. A "standard" single-vCPU or even shared "micro" or "small" machine with *Debian 9* are fine defaults:
 
@@ -85,6 +112,8 @@ A **Service account** is not necessary and can be disabled.
 Select the **Networking** tab and select your pre-configured network, if any. Apply any desired network tags while here, too.
 
 Select **Create** to start the instance.
+
+## (Optional) Update domain records
 
 Once you have an *External IP* assigned, you may want to configure a DNS record. To do so, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
 
@@ -111,7 +140,12 @@ Likewise, there should be [SOA records](https://support.dnsimple.com/articles/so
 
 ## Setup access
 
-Use an existing [YubiKey](https://github.com/drduh/YubiKey-Guide) or create a new [4096-bit](http://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into your instance via SSH (pass-phrase is optional):
+Use an existing [YubiKey](https://github.com/drduh/YubiKey-Guide#ssh):
+
+    $ ssh-add -L
+    ssh-rsa AAAAB4NzaC1yc2EAAAADAQABAAACAz[...]zreOKM+HwpkHzcy9DQcVG2Nw== cardno:000605553211
+
+Or create a new [4096-bit](http://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into your instance via SSH (pass-phrase is optional):
 
     $ ssh-keygen -t rsa -b 4096 -C 'sysadm' -f ~/.ssh/duh
 
@@ -163,7 +197,7 @@ Install any necessary software, for example:
 
     # apt-get -y install zsh vim tmux dnsutils whois git gcc autoconf make lsof tcpdump htop tree
 
-## Configure passwords
+## Configure password
 
 Set a password for the current user:
 
