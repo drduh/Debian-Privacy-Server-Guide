@@ -75,21 +75,24 @@ Create a dedicated network:
 
     $ gcloud beta compute networks create debian-privsec-net
 
-Create an instance:
+Set the `PROJECT`, `INSTANCE`, `NETWORK`, [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/), and [`TYPE`](https://cloud.google.com/compute/docs/machine-types) variables, as well as a recent image version:
+
+    $  gcloud beta compute images list | grep debian
+    debian-9-stretch-v20181113  debian-cloud  debian-9  READY
+    $ IMAGE=debian-9-stretch-v20181113
 
     $ PROJECT=debian-privsec-cloud
     $ INSTANCE=debian-privsec-standard
     $ NETWORK=debian-privsec-net
+    $ TYPE=n1-standard-1
     $ ZONE=us-east1-a
+
+Create an instance:
+
     $ gcloud beta compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --subnet=$NETWORK \
-      --machine-type=n1-standard-1 --network-tier=PREMIUM --can-ip-forward --no-restart-on-failure --maintenance-policy=TERMINATE \
-      --no-service-account --no-scopes --image=debian-9-stretch-v20181113 --image-project=debian-cloud \
+      --machine-type=$TYPE --network-tier=PREMIUM --can-ip-forward --no-restart-on-failure --maintenance-policy=TERMINATE \
+      --no-service-account --no-scopes --image=$IMAGE --image-project=debian-cloud \
       --boot-disk-size=40GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
-
-Be sure to set the `PROJECT`, `INSTANCE`, [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/), and `NETWORK` variables, as well as a recent image version:
-
-    $  gcloud beta compute images list | grep debian
-    debian-9-stretch-v20181113  debian-cloud  debian-9  READY
 
 Add a rule for remote access:
 
