@@ -11,7 +11,7 @@ If you have a suggestion or spot an error, don't hack me, rather please send a [
   * [Create instance](#create-instance)
     + [Command-line](#command-line)
     + [Web UI](#web-ui)
-  * [(Optional) Update domain records](#-optional--update-domain-records)
+  * [Update domain records](#update-domain-records)
   * [Setup access](#setup-access)
   * [Connect](#connect)
   * [Apply updates](#apply-updates)
@@ -86,7 +86,7 @@ Create an instance:
       --no-service-account --no-scopes --image=debian-9-stretch-v20181113 --image-project=debian-cloud \
       --boot-disk-size=40GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
 
-Be sure to set the `PROJECT`, `INSTANCE`, `[ZONE](https://cloud.google.com/compute/docs/regions-zones/)`, and `NETWORK` variables, as well as a recent image version:
+Be sure to set the `PROJECT`, `INSTANCE`, [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/), and `NETWORK` variables, as well as a recent image version:
 
     $  gcloud beta compute images list | grep debian
     debian-9-stretch-v20181113  debian-cloud  debian-9  READY
@@ -113,7 +113,9 @@ Select the **Networking** tab and select your pre-configured network, if any. Ap
 
 Select **Create** to start the instance.
 
-## (Optional) Update domain records
+## Update domain records
+
+This step is optional.
 
 Once you have an *External IP* assigned, you may want to configure a DNS record. To do so, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
 
