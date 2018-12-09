@@ -1,11 +1,4 @@
-This is a step-by-step guide to configuring and managing a domain, remote server and hosted services, such as VPN, a private and obfuscated Tor bridge, and encrypted chat, using the [Debian GNU/Linux](https://www.debian.org/releases/jessie/amd64/ch01s03.html.en) operating system and other free software.
-
-I like to set up my servers and services in these ways. This guide is **not** meant to be a canonical guide on best practices. I am **not** responsible for anything you do nor break by following any of these steps.
-
-This guide is written for [Google Compute Engine](https://cloud.google.com/compute/) (GCE), but will very likely work well on other service providers, such as Linode or Amazon AWS, or any computer which will run GNU/Linux, such as a PC Engines [APU](http://www.pcengines.ch/apu1c.htm) in a closet. It uses recommended configuration files from [drduh/config](https://github.com/drduh/config).
-
-If you have a suggestion or spot an error, don't hack me, rather please send a [pull request](https://github.com/drduh/Debian-Privacy-Server-Guide/pulls) or [open an issue](https://github.com/drduh/Debian-Privacy-Server-Guide/issues/new) on GitHub.
-
+- [Introduction](#introduction)
 - [Domain name](#domain-name)
 - [Server setup](#server-setup)
   * [Create instance](#create-instance)
@@ -14,8 +7,8 @@ If you have a suggestion or spot an error, don't hack me, rather please send a [
   * [Update domain records](#update-domain-records)
   * [Setup access](#setup-access)
   * [Connect](#connect)
+  * [Configure sudo](#configure-sudo)
   * [Apply updates](#apply-updates)
-  * [Configure password](#configure-password)
   * [Configure instance](#configure-instance)
     + [tmux](#tmux)
     + [Zsh](#zsh)
@@ -37,8 +30,17 @@ If you have a suggestion or spot an error, don't hack me, rather please send a [
   * [XMPP](#xmpp)
     + [Federating](#federating)
     + [Using](#using)
-- [Mail](#mail)
 - [Conclusion](#conclusion)
+
+# Introduction
+
+This is a step-by-step guide to configuring and managing a domain, remote server and hosted services, such as VPN, a private and obfuscated Tor bridge, and encrypted chat, using the [Debian GNU/Linux](https://www.debian.org/releases/jessie/amd64/ch01s03.html.en) operating system and other free software.
+
+I like to set up my servers and services in these ways. This guide is **not** meant to be a canonical guide on best practices. I am **not** responsible for anything you do nor break by following any of these steps.
+
+This guide is written for [Google Compute Engine](https://cloud.google.com/compute/) (GCE), but will very likely work well on other service providers, such as Linode or Amazon AWS, or any computer which will run GNU/Linux, such as a PC Engines [APU](http://www.pcengines.ch/apu1c.htm) in a closet. It uses recommended configuration files from [drduh/config](https://github.com/drduh/config).
+
+If you have a suggestion or spot an error, don't hack me, rather please send a [pull request](https://github.com/drduh/Debian-Privacy-Server-Guide/pulls) or [open an issue](https://github.com/drduh/Debian-Privacy-Server-Guide/issues/new) on GitHub.
 
 # Domain name
 
@@ -69,23 +71,20 @@ If it doesn't look right, log in to Tonic or your registrar and update DNS infor
 
 ### Command-line
 
-Download the gcloud [command line tool](https://cloud.google.com/sdk/gcloud/).
+Download and configure the gcloud [command line tool](https://cloud.google.com/sdk/gcloud/).
 
-Create a dedicated network:
+Set the `PROJECT`, `INSTANCE`, `NETWORK`, [`TYPE`](https://cloud.google.com/compute/docs/machine-types), and [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/) variables, as well as a recent image version:
 
-    $ gcloud beta compute networks create debian-privsec-net
-
-Set the `PROJECT`, `INSTANCE`, `NETWORK`, [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/), and [`TYPE`](https://cloud.google.com/compute/docs/machine-types) variables, as well as a recent image version:
-
-    $  gcloud beta compute images list | grep debian
-    debian-9-stretch-v20181113  debian-cloud  debian-9  READY
-    $ IMAGE=debian-9-stretch-v20181113
-
+    $ IMAGE=$(gcloud beta compute images list | grep debian | awk '{print $1}')
     $ PROJECT=debian-privsec-cloud
     $ INSTANCE=debian-privsec-standard
     $ NETWORK=debian-privsec-net
     $ TYPE=n1-standard-1
     $ ZONE=us-east1-a
+
+Create a dedicated network:
+
+    $ gcloud beta compute networks create $NETWORK
 
 Create an instance:
 
@@ -97,7 +96,7 @@ Create an instance:
 Add a rule for remote access:
 
     $ gcloud compute firewall-rules create ssh-port-22 \
-      --network debian-privsec-net --allow tcp:22 \
+      --network $NETWORK --allow tcp:22 \
       --source-ranges $(curl -s https://icanhazip.com)
 
 ### Web UI
@@ -128,7 +127,7 @@ Create an [A record](https://support.dnsimple.com/articles/a-record/) for the do
 
 Select **Create**.
 
-After a short while, verify an *A record* is returned with the correct IPv4 address for your VM instance:
+After a short while, verify an *A record* is returned with the correct IPv4 address for the instance:
 
     $ dig +short a duh.to
     104.197.215.107
@@ -150,7 +149,7 @@ Use an existing [YubiKey](https://github.com/drduh/YubiKey-Guide#ssh):
     $ ssh-add -L
     ssh-rsa AAAAB4NzaC1yc2EAAAADAQABAAACAz[...]zreOKM+HwpkHzcy9DQcVG2Nw== cardno:000605553211
 
-Or create a new [4096-bit](http://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into your instance via SSH (pass-phrase is optional):
+Or create a new [4096-bit](http://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into the instance via SSH (pass-phrase is optional):
 
     $ ssh-keygen -t rsa -b 4096 -C 'sysadm' -f ~/.ssh/duh
 
@@ -161,7 +160,7 @@ Copy the public key:
     $ cat ~/.ssh/duh.pub
     ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC/[...] sysadm
 
-Edit your VM instance settings to paste the public key into the SSH Keys section:
+Edit either instance or project-wide settings and paste the public key into the SSH Keys section:
 
 <img width="400" alt="Adding an SSH key to an instance" src="https://cloud.githubusercontent.com/assets/12475110/15527491/796d1282-222a-11e6-95a2-db73a4b5a22b.png">
 
@@ -184,57 +183,52 @@ The first time you connect, you will see a [warning](https://superuser.com/quest
     ECDSA key fingerprint is d6:9a:...:1d:c1.
     Are you sure you want to continue connecting (yes/no)?
 
-To verify this fingerprint, you will need to check the instance Serial Console output.
+To verify this fingerprint, you will need to check the instance Serial Console output, most likely using the Web UI.
 
 See [YubiKey Guide](https://github.com/drduh/YubiKey-Guide) to further secure SSH keys.
 
+## Configure sudo
+
+To set a password for sudo:
+
+    $ passwd $USER
+
+Or to allow sudo without a password for [convenience](https://security.stackexchange.com/questions/45712/how-secure-is-nopasswd-in-passwordless-sudo-mode):
+
+    $ echo "$USER ALL=(ALL) NOPASSWD:ALL" | sudo tee --append /etc/sudoers
+
 ## Apply updates
 
-[Become root](https://superuser.com/questions/306923/what-does-sudo-s-actually-do):
+Install pending updates:
 
-    $ sudo -s
-
-Install any pending updates:
-
-    # apt-get update && apt-get -y upgrade
+    $ sudo apt-get update
+    $ sudo apt-get upgrade -y
 
 Install any necessary software, for example:
 
     # apt-get -y install zsh vim tmux dnsutils whois git gcc autoconf make lsof tcpdump htop tree
 
-## Configure password
-
-Set a password for the current user:
-
-    $ passwd $USER
-
-If you wish to allow use of sudo without a password for [convenience](https://security.stackexchange.com/questions/45712/how-secure-is-nopasswd-in-passwordless-sudo-mode):
-
-    $ echo "$USER ALL=(ALL) NOPASSWD:ALL" | sudo tee --append /etc/sudoers
-
-Press `Control-D` or type `exit` to logout as root and return to the regular user.
-
 ## Configure instance
 
 ### tmux
 
-[tmux](https://tmux.github.io/) is a terminal multiplexer. This program will allow you to reconnect to a working terminal session on a remote computer.
+[tmux](https://tmux.github.io/) is a terminal multiplexer. This program allows reconnecting to a working terminal session on the instance.
 
-Edit the [configuration](http://www.hamvocke.com/blog/a-guide-to-customizing-your-tmux-conf/):
-
-    $ vim ~/.tmux.conf
-    
-Or use my [configuration](https://github.com/drduh/config/blob/master/tmux.conf):
+Use my [configuration](https://github.com/drduh/config/blob/master/tmux.conf):
 
     $ curl -o ~/.tmux.conf https://raw.githubusercontent.com/drduh/config/master/tmux.conf
+
+Or [customize your own](http://www.hamvocke.com/blog/a-guide-to-customizing-your-tmux-conf/).
 
 Run `tmux` and open a new tab with `` `-c `` or specified keyboard shortcut.
 
 `` `-1 ``, `` `-2 ``, `` `-3 `` switch to windows 1, 2, 3, etc.
 
-`` `-d `` will disconnect from Tmux so you can save your session and log out.
+`` `-d `` will disconnect from Tmux so you can save the session and log out.
 
-When you reconnect to your instance, simply type `tmux attach -t <session name>` to select a session to "attach" to (default name is "0"; use `` `-$ `` to rename).
+When you reconnect to the instance, type `tmux attach -t <session name>` (or `tmux a` for short) to select a session to "attach" to (default name is "0"; use `` `-$ `` to rename).
+
+**Note** If you're using the st terminal and receive the error `open terminal failed: missing or unsuitable terminal: st-256color`, copy the file `st.info` from st's build directory to the instance and run `tic st.info`.
 
 ### Zsh
 
@@ -244,13 +238,11 @@ To set the login shell for the current user to Zsh:
 
     $ sudo chsh -s /usr/bin/zsh $USER
 
-Edit the [configuration](https://stackoverflow.com/questions/171563/whats-in-your-zshrc):
-
-    $ vim ~/.zshrc
-
-Or use my [configuration](https://github.com/drduh/config/blob/master/zshrc):
+Use my [configuration](https://github.com/drduh/config/blob/master/zshrc):
 
     $ curl -o ~/.zshrc https://raw.githubusercontent.com/drduh/config/master/zshrc
+
+Or [customize your own](https://stackoverflow.com/questions/171563/whats-in-your-zshrc).
 
 Open a new tmux tab and run `zsh` or start a new `ssh` session to make sure the configuration is working to your liking.
 
@@ -258,15 +250,13 @@ Open a new tmux tab and run `zsh` or start a new `ssh` session to make sure the 
 
 [Vim](http://www.vim.org/) is an excellent open source text editor. Run `vimtutor` if you have not used Vim before.
 
-Edit the [configuration](https://stackoverflow.com/questions/164847/what-is-in-your-vimrc):
-
-    $ vim ~/.vimrc
-
-Or use my [configuration](https://github.com/drduh/config/blob/master/vimrc):
+Use my [configuration](https://github.com/drduh/config/blob/master/vimrc):
 
     $ curl -o ~/.vimrc https://raw.githubusercontent.com/drduh/config/master/vimrc
 
     $ mkdir -p ~/.vim/{swaps,backups,undo}
+
+Or [customize your own](https://stackoverflow.com/questions/164847/what-is-in-your-vimrc).
 
 Try out Vim:
 
@@ -300,7 +290,7 @@ Or use my [configuration](https://github.com/drduh/config/blob/master/sshd_confi
 
 Update Networking firewall rules to allow the new ssh listening port (for example, my sshd configuration uses TCP port 2222).
 
-Do not exit your current ssh session yet; first make sure you can still connect!
+Do not exit the current ssh session yet; first make sure you can still connect!
 
 Restart ssh server:
 
@@ -325,7 +315,7 @@ If you had created a new host key, you'll be asked to verify the new RSA key fin
     RSA key fingerprint is 19:de:..:fe:58:3a.
     Are you sure you want to continue connecting (yes/no)? yes
 
-Check the fingerprint on the server from your previous, existing session:
+Check the fingerprint on the server from the previous, existing session:
 
     $ ssh-keygen -lf /etc/ssh/ssh_host_key.pub
     4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
@@ -513,7 +503,7 @@ The steps to generate dnscrypt-wrapper keys and start the server can be automate
 
 Update Networking firewall rules to allow the new dnscrypt listening port (in this example, UDP port 5355).
 
-**Optional** Restrict the IP address or range of addresses which can access your VM instance to prevent abuse and [DNS attacks](http://resources.infosecinstitute.com/attacks-over-dns/).
+**Optional** Restrict the IP address or range of addresses which can access the instance to prevent abuse and [DNS attacks](http://resources.infosecinstitute.com/attacks-over-dns/).
 
 To connect from a client, edit `dnscrypt-proxy.toml` to include the static server stamp:
 
@@ -962,7 +952,7 @@ Add the CA certificate, client certificate and client key material to the config
 
     $ (echo "<ca>" ; cat ~/pki/ca.pem ; echo "</ca>\n<cert>" ; cat ~/pki/client.pem; echo "</cert>\n<key>" ; cat ~/pki/client.key ; echo "</key>") >> client.ovpn
 
-From a client, copy `ta.key` from your server:
+From a client, copy `ta.key` from the server:
 
     $ scp duh:~/pki/ta.key ~/vpn
 
@@ -986,7 +976,7 @@ To connect from Linux, install OpenVPN and start it:
     VERIFY OK: depth=0, CN=duh.to
     [...]
 
-Verify your local IP address is the same as your server:
+Verify your local IP address is the same as the server:
 
     $ curl -4 https://icanhazip.com/
     104.197.215.107
@@ -1081,7 +1071,7 @@ Create some content:
 
     $ echo "Hello, World" | sudo tee /var/www/index.html
 
-Once Lighttpd is running, request a page from your server in a Web browser or by using cURL:
+Once Lighttpd is running, request a page from the server in a Web browser or by using cURL:
 
     $ curl -vv http://duh.to/
     Hello, World
@@ -1166,7 +1156,7 @@ Create a new user:
 
 `_xmpp-server._tcp` of type `SRV` with data `0 5 5269 duh.to.`
 
-After a little while, check your records:
+After a little while, check domain SRV records:
 
     $ dig +short srv _xmpp-server._tcp.duh.to
     0 5 5269 duh.to.
@@ -1192,7 +1182,7 @@ Send a message to a contact by typing `/msg user@duh.to` - to navigate tabs, use
 
 To start OTR, type `/otr start` - Profanity will show *OTR session started (untrusted)*.
 
-To authenticate your chat partner, type `/otr question foo? bar` where `bar` is an answer to `foo?` which only the person you assume to be speaking with can answer. If the person answers correctly, Profanity will show *Authentication successful* followed by *OTR session trusted* - now you can be sure the connection is encrypted and authenticated.
+To authenticate the chat partner, type `/otr question foo? bar` where `bar` is an answer to `foo?` which only the person you assume to be speaking with can answer. If the person answers correctly, Profanity will show *Authentication successful* followed by *OTR session trusted* - now you can be sure the connection is encrypted and authenticated.
 
 To connect from an Android client, use an XMPP client like ~~[Conversations](https://conversations.im/)~~ (do not use the Conversations app - its quality is [dubious](https://github.com/siacs/Conversations/issues/2908) and author's intentions are questionable) or [Chat Secure](https://play.google.com/store/apps/details?id=info.guardianproject.otr.app.im).
 
@@ -1200,7 +1190,7 @@ Start the app and sign in. If you receive a warning that the certificate is not 
 
 To start a chat, select the `+` icon and select *New Chat*.
 
-Start OTR by selecting the lock icon and verifying your contact with a secret question and answer, or out of band (e.g., in person).
+Start OTR by selecting the lock icon and verifying a contact with a secret question and answer, or out of band (e.g., in person).
 
 To connect from a Mac client, use an XMPP client like [Profanity](http://profanity.im/), [agl/xmpp-client](https://github.com/agl/xmpp-client), or [Adium](https://github.com/drduh/macOS-Security-and-Privacy-Guide#otr).
 
@@ -1223,49 +1213,6 @@ To view and verify the XMPP server's certificate fingerprint remotely, use the `
     "ServerCertificateSHA256": "9B759D41E3DE30F9D2F902027D792B65D950A98BBB6D6D56BE7F2528453BF8E9"
 
 If an error occurs while attempting to connect, ssh to the server and check `/var/log/prosody/prosody.err`.
-
-# Mail
-
-Configuring and running a mail server is an enormous [hassle](http://sealedabstract.com/code/nsa-proof-your-e-mail-in-2-hours/) and maintaining one is a [time-consuming task](https://www.digitalocean.com/community/tutorials/why-you-may-not-want-to-run-your-own-mail-server). Moreover, many service providers [do not allow](https://cloud.google.com/compute/docs/tutorials/sending-mail/) outbound SMTP.
-
-It is much easier to simply run something like [Google Apps for Work](https://apps.google.com/) to get Gmail for your custom domain. If going down this route, simply follow instructions to configure MX records to point to Google's mail servers.
-
-Visit [https://admin.google.com/](https://admin.google.com/) to get started. To verify your domain, simply download and host an HTML file or edit your DNS TXT records, per the instructions.
-
-The [MX records](https://en.wikipedia.org/wiki/MX_record) for your domain should look something like this:
-
-    $ dig mx +short duh.to
-    1 aspmx.l.google.com.
-    5 alt1.aspmx.l.google.com.
-    5 alt2.aspmx.l.google.com.
-    10 alt3.aspmx.l.google.com.
-    10 alt4.aspmx.l.google.com.
-
-**Warning** Google Apps appears to add *X-Originating-IP* headers to emails sent from newly registered domains. This may reveal information about the location and computer used to send your mail, so wait a little while (first *N* days? during *free trial* period?) before using Google Apps mail. Alternatively, only send mail from your instance by connecting through a proxy or using a text-based e-mail client, like [Mutt](http://www.mutt.org/).
-
-To install Mutt:
-
-    $ sudo apt-get -y install mutt
-
-Download my [configuration](https://github.com/drduh/config/blob/master/muttrc):
-
-    $ curl -o ~/.muttrc https://raw.githubusercontent.com/drduh/config/master/muttrc
-
-Or edit the [configuration](http://muttrcbuilder.org/) manually:
-
-    $ vim ~/.muttrc
-
-**Note** You will need to turn on 2-Step Verification and create an [App password](https://security.google.com/settings/security/apppasswords?pli=1) to use Mutt.
-
-Lock it down:
-
-    $ chmod 0600 ~/.muttrc
-
-Start Mutt:
-
-    $ mutt
-
-Type `?` to see available commands, or read online guides to using Mutt.
 
 # Conclusion
 
