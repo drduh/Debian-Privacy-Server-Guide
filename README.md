@@ -95,9 +95,7 @@ Create an instance:
 
 Add a rule for remote access:
 
-    $ gcloud compute firewall-rules create ssh-port-22 \
-      --network $NETWORK --allow tcp:22 \
-      --source-ranges $(curl -s https://icanhazip.com)
+    $ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK --allow tcp:22 --source-ranges $(curl -s https://icanhazip.com)
 
 ### Web UI
 
@@ -288,7 +286,7 @@ Or [customize your own](https://www.freebsd.org/cgi/man.cgi?query=sshd_config&se
 
 Update Networking firewall rules to allow the new ssh listening port (for example, my SSHD configuration uses port 2222):
 
-    $ gcloud compute firewall-rules create ssh-port-2222 --network $NETWORK --allow tcp:2222 --source-ranges $(curl -s https://icanhazip.com)
+    $ gcloud compute firewall-rules create ssh-tcp-2222 --network $NETWORK --allow tcp:2222 --source-ranges $(curl -s https://icanhazip.com)
 
 Do not exit the current ssh session yet; first make sure you can still connect!
 
@@ -598,7 +596,7 @@ Test Privoxy locally on the server:
 
 Clients can use the remote proxy with [Secure Shell tunneling](https://en.wikipedia.org/wiki/Tunneling_protocol), also known as a ["poor man's VPN"](https://www.linuxjournal.com/content/ssh-tunneling-poor-techies-vpn) (**Note** `AllowTcpForwarding yes` must be enabled in `/etc/ssh/sshd_config` on the server to use these features, followed by `sudo service ssh restart`).
 
-    $ ssh -NCL 5555:127.0.0.1:8000 duh
+    $ ssh -NCL 5555:127.0.0.1:8118 duh
 
 In another client terminal:
 
@@ -700,7 +698,7 @@ Ensure connections from the server over Tor are possible:
 
 Update Networking firewall rules to allow the new proxy listening port (in this case, TCP port 10022):
 
-    $ gcloud compute firewall-rules create tor-obfs4-tcp-10022 --network $NETWORK --allow tcp:10022 --source-ranges $(curl -s https://icanhazip.com)
+    $ gcloud compute firewall-rules create obfs4-tcp-10022 --network $NETWORK --allow tcp:10022 --source-ranges $(curl -s https://icanhazip.com)
 
 If Tor did not start, try starting it manually (`sudo` may be required to bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html)):
 
@@ -830,21 +828,19 @@ You could also use [OpenVPN/easy-rsa](https://github.com/OpenVPN/easy-rsa) or [L
 
 Starting with the client, install OpenVPN:
 
-    $ sudo apt-get -y install openvpn
+    $ sudo apt-get -y install openvpnA
 
-Edit the [configuration](https://openvpn.net/index.php/open-source/documentation/howto.html#server):
-
-    $ sudo -E vim /etc/openvpn/server.ovpn
-
-Or use my [configuration](https://github.com/drduh/config/blob/master/server.ovpn):
+Use my [configuration](https://github.com/drduh/config/blob/master/server.ovpn):
 
     $ sudo curl -o /etc/openvpn/server.ovpn https://raw.githubusercontent.com/drduh/config/master/server.ovpn
 
+Or [customize your own](https://openvpn.net/index.php/open-source/documentation/howto.html#server).
+
 Preferably on the client-side, generate a [static key](https://openvpn.net/index.php/open-source/documentation/miscellaneous/78-static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
 
-    $ sudo openvpn --genkey --secret ta.key
+    $ openvpn --genkey --secret ta.key
 
-Create [Diffie-Hellman key exchange parameters](https://security.stackexchange.com/questions/38206/can-someone-explain-a-little-better-what-exactly-is-accomplished-by-generation-o):
+Also client-side, create [Diffie-Hellman key exchange parameters](https://security.stackexchange.com/questions/38206/can-someone-explain-a-little-better-what-exactly-is-accomplished-by-generation-o):
 
     $ openssl dhparam -dsaparam -out dh.pem 4096
 
@@ -852,7 +848,7 @@ Copy these files and certificates from the previous section to the server (note,
 
     $ scp ta.key dh.pem ca.pem intermediate.pem server.pem server.key duh:~
 
-On the server-side, the files:
+On the server-side, move the files into place:
 
     $ sudo mkdir /etc/pki
 
@@ -874,19 +870,15 @@ Create a [NAT](https://serverfault.com/questions/267286/openvpn-server-will-not-
 
 **Optional** Route all HTTP (TCP port 80) traffic through Privoxy.
 
-    $ sudo iptables -t nat -A PREROUTING --source 10.8.0.0/16 -p tcp -m tcp --dport 80 -j DNAT --to 10.8.0.1:8000
+    $ sudo iptables -t nat -A PREROUTING --source 10.8.0.0/16 -p tcp -m tcp --dport 80 -j DNAT --to 10.8.0.1:8118
     
-    $ echo "listen-address 10.8.0.1:8000" | sudo tee --append /etc/privoxy/config
-    
-    $ sudo service privoxy restart
-
 To make it permanent:
 
     $ sudo apt-get -y install iptables-persistent
 
     $ sudo iptables-save | sudo tee /etc/iptables/rules.v4
 
-If using Dnsmasq, append `10.8.0.1` as a listening address:
+Append `10.8.0.1` as a listening address for dnsmasq:
 
     $ sudo sed -i.bak "s/listen-address=127.0.0.1/listen-address=127.0.0.1,10.8.0.1/g" /etc/dnsmasq.conf
 
@@ -940,7 +932,7 @@ For each connecting device, edit a [client configuration](https://openvpn.net/in
 
     $ vim ~/vpn/client.ovpn
 
-Or use my [configuration](https://github.com/drduh/config/blob/master/client.ovpn):
+To use my [configuration](https://github.com/drduh/config/blob/master/client.ovpn):
 
     $ curl -o ~/vpn/client.ovpn https://raw.githubusercontent.com/drduh/config/master/client.ovpn
 
@@ -952,7 +944,7 @@ From a client, copy `ta.key` from the server:
 
     $ scp duh:~/pki/ta.key ~/vpn
 
-To connect from Linux, install OpenVPN and start it:
+To connect, install and start OpenVPN:
 
     $ sudo apt-get -y install openvpn
 
@@ -990,7 +982,7 @@ Select **Import** > **Import Profile from SD card** and select `client.ovpn`, pe
 
 If the profile was was successfully imported, select **Connect**.
 
-To connect from a Mac, install OpenVPN from [Homebrew](https://github.com/drduh/OS-X-Security-and-Privacy-Guide#homebrew):
+**Mac** Install OpenVPN from [Homebrew](https://github.com/drduh/OS-X-Security-and-Privacy-Guide#homebrew):
 
     $ brew install openvpn
 
@@ -1019,25 +1011,23 @@ Verify:
 
 Or use a GUI-based VPN client like [Tunnelblick](https://tunnelblick.net/).
 
-See also [OS-X-Security-and-Privacy-Guide#vpn](https://github.com/drduh/OS-X-Security-and-Privacy-Guide#vpn).
+See also [macOS-Security-and-Privacy-Guide#vpn](https://github.com/drduh/macOS-Security-and-Privacy-Guide#vpn).
 
 ## Web Server
 
-You may wish to run a Web server to serve static or dynamic pages.
+**Optional** You may want to run a Web server to serve static or dynamic pages.
 
 Install [Lighttpd](https://www.lighttpd.net/) with [ModMagnet](http://redmine.lighttpd.net/projects/1/wiki/Docs_ModMagnet) (optional):
 
     $ sudo apt-get -y install lighttpd lighttpd-mod-magnet
 
-Edit the [configuration](https://redmine.lighttpd.net/projects/1/wiki/TutorialConfiguration):
-
-    $ sudo -E vim /etc/lighttpd/lighttpd.conf
-
-Or use my [configuration](https://github.com/drduh/config/blob/master/lighttpd.conf):
+To use my [configuration](https://github.com/drduh/config/blob/master/lighttpd.conf):
 
     $ sudo curl -o /etc/lighttpd/lighttpd.conf https://raw.githubusercontent.com/drduh/config/master/lighttpd.conf
 
     $ sudo curl -o /etc/lighttpd/magnet.luau https://raw.githubusercontent.com/drduh/config/master/magnet.luau
+
+Or [customize your own](https://redmine.lighttpd.net/projects/1/wiki/TutorialConfiguration).
 
 **Note** Lighttpd expects the server private key and certificate to be stored in one file as the `ssl.pemfile` argument:
 
@@ -1082,23 +1072,15 @@ Install Prosody:
 
     $ sudo apt-get -y install prosody
 
-Edit the [configuration](https://prosody.im/doc/example_config):
-
-    $ sudo -E vim /etc/prosody/prosody.cfg.lua
-
-Or use my [configuration](https://github.com/drduh/config/blob/master/prosody.cfg.lua) and edit it to suit your needs:
+Use my [configuration](https://github.com/drduh/config/blob/master/prosody.cfg.lua) and edit it to suit your needs:
 
     $ sudo curl -o /etc/prosody/prosody.cfg.lua https://raw.githubusercontent.com/drduh/config/master/prosody.cfg.lua
 
-See also [Advanced ssl config](https://prosody.im/doc/advanced_ssl_config).
+Or [customize your own](https://prosody.im/doc/example_config). See also [Advanced ssl config](https://prosody.im/doc/advanced_ssl_config).
 
 Use Diffie-Hellman key exchange parameters from the [Certificate](#certificates) steps:
 
     $ sudo cp ~/pki/dh.pem /etc/pki/dh.pem
-
-Or create new parameters:
-
-    $ sudo openssl dhparam -out /etc/pki/dh.pem 4096
 
 Copy the server certificate and key from the [Certificate](#certificates) steps:
 
@@ -1112,23 +1094,21 @@ If using a custom CA or intermediate certificate, append it to the server certif
 
 Or generate a new self-signed certificate:
 
-    $ openssl req -x509 -newkey rsa:4096 -days 365 -sha256 -subj "/CN=duh.to" \
+    $ openssl req -x509 -newkey rsa:4096 -days 365 -sha256 -subj "/CN=server.name" \
       -keyout /etc/pki/xmpp-key.pem -nodes -out /etc/pki/xmpp-cert.pem
 
 Set file ownership:
 
-    $ sudo chown prosody:prosody /etc/pki/xmpp-*pem
+    $ sudo chown prosody:prosody /etc/pki/xmpp-*.pem
 
 Restart Prosody:
 
     $ sudo service prosody restart
 
-Ensure it's running:
+Ensure it's running and listening:
 
     $ sudo tail -n1 /var/log/prosody/prosody.log
     mod_posix       info    Successfully daemonized to PID 1831
-
-Ensure it's listening:
 
     $ sudo lsof -Pni | grep prosody
     lua5.1     1831    prosody    6u  IPv6 317986      0t0  TCP *:5269 (LISTEN)
@@ -1136,17 +1116,19 @@ Ensure it's listening:
     lua5.1     1831    prosody    8u  IPv6 317990      0t0  TCP *:5222 (LISTEN)
     lua5.1     1831    prosody    9u  IPv4 317991      0t0  TCP *:5222 (LISTEN)
 
-Update Networking firewall rules to allow the new prosody listening ports (in this example, TCP ports 5222 and 5269).
+Update Networking firewall rules to allow the new prosody listening ports (in this example, TCP ports 5222 and 5269):
+
+    $ gcloud compute firewall-rules create xmpp-tcp-5222-5269 --network $NETWORK --allow tcp:5222,tcp:5269 --source-ranges $(curl -s https://icanhazip.com)
 
 Create a new user:
 
     $ sudo prosodyctl adduser doc@duh.to
 
-**Note** The domain must match the server certificate common name (*CN_SERVER* in *pki.sh*) - check with `openssl x509 -in /etc/pki/xmpp-cert.pem -noout -subject`
+**Important** The domain name must match the server certificate common name (*CN_SERVER* in *pki.sh*) - check with `sudo openssl x509 -in /etc/pki/xmpp-cert.pem -noout -subject`
 
 ### Federating
 
-**Optional** For other XMPP servers to communicate with yours, you must [configure DNS records](https://xmpp.org/rfcs/rfc6120.html#tcp-resolution-prefer) for [interdomain federation](https://www.cisco.com/c/en/us/td/docs/voice_ip_comm/cucm/im_presence/interdomain_federation):
+For others to communicate with your XMPP server, you must [configure DNS records](https://xmpp.org/rfcs/rfc6120.html#tcp-resolution-prefer) for [interdomain federation](https://www.cisco.com/c/en/us/td/docs/voice_ip_comm/cucm/im_presence/interdomain_federation):
 
 `_xmpp-client._tcp` of type `SRV` with data `0 5 5222 duh.to.`
 
@@ -1162,11 +1144,9 @@ After a little while, check domain SRV records:
 
 ### Using
 
-To connect from a Linux client, use an XMPP client like [Profanity](http://profanity.im/) or [agl/xmpp-client](https://github.com/agl/xmpp-client):
+To connect from a client, use [Profanity](http://profanity.im/)
 
     $ sudo apt-get -y install profanity
-
-Start Profanity:
 
     $ profanity
 
@@ -1180,25 +1160,19 @@ To start OTR, type `/otr start` - Profanity will show *OTR session started (untr
 
 To authenticate the chat partner, type `/otr question foo? bar` where `bar` is an answer to `foo?` which only the person you assume to be speaking with can answer. If the person answers correctly, Profanity will show *Authentication successful* followed by *OTR session trusted* - now you can be sure the connection is encrypted and authenticated.
 
-To connect from an Android client, use an XMPP client like ~~[Conversations](https://conversations.im/)~~ (do not use the Conversations app - its quality is [dubious](https://github.com/siacs/Conversations/issues/2908) and author's intentions are questionable) or [Chat Secure](https://play.google.com/store/apps/details?id=info.guardianproject.otr.app.im).
+Or use [agl/xmpp-client](https://github.com/agl/xmpp-client):
 
-Start the app and sign in. If you receive a warning that the certificate is not signed by a known authority, verify it using the step below.
+    $ go get github.com/agl/xmpp-client
 
-To start a chat, select the `+` icon and select *New Chat*.
-
-Start OTR by selecting the lock icon and verifying a contact with a secret question and answer, or out of band (e.g., in person).
-
-To connect from a Mac client, use an XMPP client like [Profanity](http://profanity.im/), [agl/xmpp-client](https://github.com/agl/xmpp-client), or [Adium](https://github.com/drduh/macOS-Security-and-Privacy-Guide#otr).
+    $ $GOPATH/bin/xmpp-client
 
 If you can't connect, check for errors in `/var/log/prosody/prosody.err` on the server.
 
-Verify the SHA-256 fingerprint matches the certificate you see on the server:
+To verify the SHA256 fingerprint matches the certificate on the server:
 
     $ openssl x509 -in /etc/pki/xmpp-cert.pem -fingerprint -noout -sha256
 
-If it matches the fingerprint in the presented certificate prompt, trust it and connect.
-
-To view and verify the XMPP server's certificate fingerprint remotely, use the `openssl` command:
+To view and verify the XMPP server's certificate fingerprint remotely, use the `openssl` command from a client:
 
     $ echo -e | openssl s_client -connect duh.to:5222 -starttls xmpp | openssl x509 -noout -fingerprint -sha256 | tr -d ':'
     [...]
@@ -1214,6 +1188,4 @@ If an error occurs while attempting to connect, ssh to the server and check `/va
 
 Reboot the instance and make sure everything still works. If not, you'll need to automate certain programs to start up on their own (for example, Privoxy will fail to start if OpenVPN does not first create a tunnel interface to bind to).
 
-With this guide, one can set up a fairly secure server with several privacy- and security-enchancing services. The server can be used to circumvent firewalls, provide strong encryption and overall improve your online experience, all for a low monthly cost (average ~$35 per month for a "standard" instance.) A domain name also lets you receive email and assign DNS records, which is convenient, but totally optional.
-
-To save money, consider using [Preemptible VM instances](https://cloud.google.com/compute/docs/instances/preemptible) which can be started right back up with a script.
+With this guide, a secure server with several privacy and security enchancing services can be setup in less than an hour. The server can be used to circumvent firewalls, provide strong encryption and overall improve online experience, all for a low monthly cost (average ~$35 per month for a "standard" instance.) To save money, consider using [Preemptible VM instances](https://cloud.google.com/compute/docs/instances/preemptible) which can be started right back up with a script.
