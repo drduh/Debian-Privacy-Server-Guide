@@ -23,7 +23,7 @@
   * [Tor](#tor)
     + [DNS over Tor](#dns-over-tor)
     + [Obfuscation](#obfuscation)
-    + [Hidden Service](#hidden-service)
+    + [Onion Service](#onion-service)
   * [Certificates](#certificates)
   * [OpenVPN](#openvpn)
   * [Web Server](#web-server)
@@ -280,15 +280,15 @@ Lock down file permissions:
 
     $ sudo chown root:root /etc/ssh/ssh_host_key{,.pub}
 
-Edit the ssh server [configuration](https://www.freebsd.org/cgi/man.cgi?query=sshd_config&sektion=5):
-
-    $ sudo -E vim /etc/ssh/sshd_config
-
-Or use my [configuration](https://github.com/drduh/config/blob/master/sshd_config):
+Use my [configuration](https://github.com/drduh/config/blob/master/sshd_config):
 
     $ sudo curl -o /etc/ssh/sshd_config https://raw.githubusercontent.com/drduh/config/master/sshd_config
 
-Update Networking firewall rules to allow the new ssh listening port (for example, my sshd configuration uses TCP port 2222).
+Or [customize your own](https://www.freebsd.org/cgi/man.cgi?query=sshd_config&sektion=5).
+
+Update Networking firewall rules to allow the new ssh listening port (for example, my SSHD configuration uses port 2222):
+
+    $ gcloud compute firewall-rules create ssh-port-2222 --network $NETWORK --allow tcp:2222 --source-ranges $(curl -s https://icanhazip.com)
 
 Do not exit the current ssh session yet; first make sure you can still connect!
 
@@ -304,41 +304,24 @@ On a client, edit `~/.ssh/config` to make any modifications, for example by addi
       IdentityFile ~/.ssh/duh
       Port 2222
 
-Start a new ssh session to confirm it still works, then exit the other session.
+Start a new ssh session to confirm it works, then exit the other session.
 
-**Note** On older versions of OS X, the ssh client may be out of date and may not support newer cipher suites. Either upgrade it using Homebrew, or comment out related lines in the server configuration to connect.
-
-If you had created a new host key, you'll be asked to verify the new RSA key fingerprint:
+If you had created a new host key, you'll be asked to verify the new key fingerprint:
 
     $ ssh duh
     The authenticity of host '[104.197.215.107]:2222 ([104.197.215.107]:2222)' can't be established.
     RSA key fingerprint is 19:de:..:fe:58:3a.
     Are you sure you want to continue connecting (yes/no)? yes
 
-Check the fingerprint on the server from the previous, existing session:
-
-    $ ssh-keygen -lf /etc/ssh/ssh_host_key.pub
-    4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
-
-If `ssh` presents a SHA256 fingerprint:
-
-    $ ssh duh
-    Host key fingerprint is SHA256:47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU
-
-Check the fingerprint on the server:
+To check the sha256 fingerprint of the host key:
 
     $ ssh-keygen -E sha256 -lf /etc/ssh/ssh_host_key.pub
     4096 SHA256:47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU no comment (RSA)
 
-    $ awk '{print $2}' /etc/ssh/ssh_host_key.pub | base64 -d | sha256sum -b | awk '{print $1}' | xxd -r -p | base64
-    47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU
-    
-To get the MD5 hash of the key fingerprint:
+To check the md5 fingerprint of the host key:
 
     $ ssh-keygen -E md5 -lf /etc/ssh/ssh_host_key.pub
     4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
-
-Start `tmux` or reconnect to an existing session.
 
 ### GPG
 
@@ -376,24 +359,22 @@ Install Dnsmasq:
 
     $ sudo apt-get -y install dnsmasq
 
-Edit the [configuration](http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html):
-
-    $ sudo -E vim /etc/dnsmasq.conf
-
-Or use my [configuration](https://github.com/drduh/config/blob/master/dnsmasq.conf):
+Use my [configuration](https://github.com/drduh/config/blob/master/dnsmasq.conf):
 
     $ sudo curl -o /etc/dnsmasq.conf https://raw.githubusercontent.com/drduh/config/master/dnsmasq.conf
+
+Or [customize your own](http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html).
 
 Pick an upstream name server. To use Google resolvers, add `server=169.254.169.254` to `/etc/dnsmasq.conf` or use a `resolv-file`:
 
     $ echo "nameserver 169.254.169.254" | sudo tee /etc/resolv.dnsmasq
     nameserver 169.254.169.254
 
-Install a DNS [blacklist](https://en.wikipedia.org/wiki/Hosts_(file)) ([alternative method](https://debian-administration.org/article/535/Blocking_ad_servers_with_dnsmasq)), for example:
+**Optional** Install a DNS [blacklist](https://en.wikipedia.org/wiki/Hosts_(file)) ([alternative method](https://debian-administration.org/article/535/Blocking_ad_servers_with_dnsmasq)), for example:
 
     $ sudo curl https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts -o /etc/blacklist
 
-**Optional** Append additional lists, for example:
+Append additional lists, for example:
 
     $ curl https://raw.githubusercontent.com/jmdugan/blocklists/master/corporations/facebook/facebook.com | sudo tee --append /etc/blacklist
 
@@ -465,7 +446,7 @@ Create keys and certificate (see usage instructions on [Cofyc/dnscrypt-wrapper](
     $ mkdir ~/dnscrypt-keys && cd ~/dnscrypt-keys
 
     $ dnscrypt-wrapper --gen-provider-keypair \
-      --provider-name=dnscrypt.cloud --ext-address=$(curl -s https://icanhazip.com/)
+      --provider-name=2.dnscrypt.cloud --ext-address=$(curl -s https://icanhazip.com/)
     Generate provider key pair... ok.
     [...]
     Keys are stored in public.key & secret.key.
@@ -486,15 +467,10 @@ By default, keys expire after 24 hours - 30 days are specified in the command be
     [...]
     [20300] 01 May 00:00:00.000 [notice] [main.c:566] Certificate stored in 1.cert.
 
-Print the public key fingerprint:
-
-    $ dnscrypt-wrapper --show-provider-publickey --provider-publickey-file public.key
-    Provider public key fingerprint : 390C:...:F93E
-
 Start the server on port 5355:
 
     $ sudo dnscrypt-wrapper --resolver-address=127.0.0.1:53 \
-      --listen-address=0.0.0.0:5355 --provider-name=dnscrypt.cloud \
+      --listen-address=0.0.0.0:5355 --provider-name=2.dnscrypt.cloud \
       --crypt-secretkey-file=1.key --provider-cert-file=1.cert -V
 
 **Note** The provider-name parameter is **not** encrypted during the connection handshake.
@@ -503,7 +479,7 @@ The steps to generate dnscrypt-wrapper keys and start the server can be automate
 
 Update Networking firewall rules to allow the new dnscrypt listening port (in this example, UDP port 5355).
 
-**Optional** Restrict the IP address or range of addresses which can access the instance to prevent abuse and [DNS attacks](http://resources.infosecinstitute.com/attacks-over-dns/).
+    $ gcloud compute firewall-rules create dnscrypt-udp-5355 --network $NETWORK --allow udp:5355 --source-ranges $(curl -s https://icanhazip.com)
 
 To connect from a client, edit `dnscrypt-proxy.toml` to include the static server stamp:
 
@@ -513,35 +489,28 @@ To connect from a client, edit `dnscrypt-proxy.toml` to include the static serve
       [static.'abc']
       stamp = 'sdns://AQAAAAAAAAAAEj...ZA'
 
-Reference [drduh/config/dnscrypt-proxy.toml](https://github.com/drduh/config/blob/master/dnscrypt-proxy.toml) and [jedisct1/dnscrypt-proxy/example-dnscrypt-proxy.toml](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-proxy/example-dnscrypt-proxy.toml) for more options.
+See [drduh/config/dnscrypt-proxy.toml](https://github.com/drduh/config/blob/master/dnscrypt-proxy.toml) and [jedisct1/dnscrypt-proxy/example-dnscrypt-proxy.toml](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-proxy/example-dnscrypt-proxy.toml) for more options.
 
-Then start the client manually:
+Start the client manually:
 
     $ sudo ./dnscrypt-proxy
-    [NOTICE] dnscrypt-proxy 2.0.11
-    [NOTICE] Now listening to 127.0.0.1:5355 [UDP]
-    [NOTICE] Now listening to 127.0.0.1:5355 [TCP]
-    [NOTICE] [abc] OK (crypto v1) - rtt: 10ms
-    [NOTICE] Server with the lowest initial latency: abc (rtt: 10ms)
+
+Check the logfile:
+
+    $ tail -f dnscrypt.log
+    [NOTICE] dnscrypt-proxy 2.0.19
+    [NOTICE] Loading the set of blocking rules from [blacklist.txt]
+    [NOTICE] Loading the set of forwarding rules from [forwarding-rules.txt]
+    [NOTICE] Loading the set of IP blocking rules from [ip-blacklist.txt]
+    [NOTICE] Now listening to 127.0.0.1:4002 [UDP]
+    [NOTICE] Now listening to 127.0.0.1:4002 [TCP]
+    [NOTICE] [abc] OK (crypto v1) - rtt: 52ms
+    [NOTICE] Server with the lowest initial latency: abc (rtt: 52ms)
     [NOTICE] dnscrypt-proxy is ready - live servers: 1
 
-Or install it as a service:
+Or install dnscrypt as a service:
 
     $ sudo ./dnscrypt-proxy -service install
-
-Or on older versions of dnscrypt-proxy:
-
-    $ sudo dnscrypt-proxy \
-      -a 127.0.0.1:40 -r 104.197.215.107:5355 \
-      -k 390C:...:F93E -N 2.dnscrypt-cert.duh.to
-    [NOTICE] Starting dnscrypt-proxy 1.9.4
-    [INFO] Generating a new session key pair
-    [INFO] Done
-    [INFO] Server certificate #808441433 received
-    [INFO] This certificate looks valid
-    [INFO] Chosen certificate #808441433 is valid from [2016-05-08] to [2017-05-08]
-    [INFO] Server key fingerprint is 9147:...:212E
-    [NOTICE] Proxying from 127.0.0.1:40 to 104.197.215.107:5355
 
 Outgoing DNS packets will now be encrypted from the client.
 
@@ -577,7 +546,9 @@ Once DNSCrypt is configured on the client, edit `/etc/dnsmasq.conf` and append `
 
 DNSCrypt supports [query blocking](https://github.com/jedisct1/dnscrypt-proxy/wiki/Public-blacklists) with regular expression matching.
 
-Clone the [dnscrypt-proxy repository](https://github.com/jedisct1/dnscrypt-proxy) and use the included Python script to generate a list, then configure dnscrypt to use it.
+On the client, clone the dnscrypt-proxy repository and use the included Python script to generate a list, then configure dnscrypt to use it.
+
+    $ git clone https://github.com/jedisct1/dnscrypt-proxy
 
     $ cd ~/git/dnscrypt-proxy/utils/generate-domains-blacklists
 
@@ -595,7 +566,6 @@ Clone the [dnscrypt-proxy repository](https://github.com/jedisct1/dnscrypt-proxy
     $ wc -l blacklist.txt
     117838 blacklist.txt
 
-
 ## Privoxy
 
 [Privoxy](https://www.privoxy.org/) is a non-caching web proxy with advanced filtering capabilities for enhancing privacy, modifying web page data and HTTP headers, controlling access, and removing ads and other obnoxious Internet junk.
@@ -604,13 +574,11 @@ Install Privoxy on the server:
 
     $ sudo apt-get -y install privoxy
 
-Edit the [configuration](https://www.privoxy.org/faq/configuration.html):
-
-    $ sudo -E vim /etc/privoxy/config
-
-Or use my [configuration](https://github.com/drduh/config/blob/master/privoxy):
+Use my [configuration](https://github.com/drduh/config/blob/master/privoxy):
 
     $ sudo curl -o /etc/privoxy/config https://raw.githubusercontent.com/drduh/config/master/privoxy
+
+Or [customize your own](https://www.privoxy.org/faq/configuration.html).
 
 Restart Privoxy:
 
@@ -618,9 +586,9 @@ Restart Privoxy:
 
 Test Privoxy locally on the server:
 
-    $ ALL_PROXY=127.0.0.1:8000 curl -I http://p.p/
+    $ ALL_PROXY=127.0.0.1:8118 curl -I http://p.p/
     HTTP/1.1 200 OK
-    Content-Length: 3312
+    Content-Length: 2500
     Content-Type: text/html
     Cache-Control: no-cache
     Date: Sun, 01 May 2016 00:00:00 GMT
@@ -654,11 +622,19 @@ Watch Privoxy logs (you may wish to disable logging by removing `debug` lines in
 
 [Tor](https://www.torproject.org/) can be used as a public relay or as a [private bridge](https://www.torproject.org/docs/bridges.html.en) for you and your friends.
 
-[Install Tor](https://www.torproject.org/docs/tor-relay-debian.html.en) on the server:
+[Install Tor](https://www.torproject.org/docs/tor-relay-debian.html.en) on the server - by default Tor does **not** relay nor exit traffic; it only provides a local port for outbound connections.
 
     $ sudo apt-get -y install tor
 
 **Optional** Install and configure [anonymizing relay monitor (arm)](https://www.atagar.com/arm/), a terminal-based status monitor for Tor.
+
+    $ sudo apt-get -y install tor-arm
+
+    $ sudo arm
+
+To use my [configuration](https://github.com/drduh/config/blob/master/torrc):
+
+    $ sudo curl -o /etc/tor/torrc https://raw.githubusercontent.com/drduh/config/master/torrc
 
 ### DNS over Tor
 
@@ -717,7 +693,14 @@ Ensure `obfs4proxy` is accepting connections:
     $ sudo lsof -Pni | grep 10022
     obfs4prox 6685     debiant-tor    4u  IPv6  44617      0t0  TCP *:10022 (LISTEN)
 
-Update Networking firewall rules to allow the new proxy listening port (in this case, TCP port 10022).
+Ensure connections from the server over Tor are possible:
+
+    $ curl --socks5 127.0.0.1:9050 https://icanhazip.com/
+    [tor exit node ip address]
+
+Update Networking firewall rules to allow the new proxy listening port (in this case, TCP port 10022):
+
+    $ gcloud compute firewall-rules create tor-obfs4-tcp-10022 --network $NETWORK --allow tcp:10022 --source-ranges $(curl -s https://icanhazip.com)
 
 If Tor did not start, try starting it manually (`sudo` may be required to bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html)):
 
@@ -744,7 +727,10 @@ Copy the bridgeline, filling in the IP address and port:
     $ sudo tail -n1 /var/lib/tor/pt_state/obfs4_bridgeline.txt
     Bridge obfs4 <IP ADDRESS>:<PORT> <FINGERPRINT> cert=4ar[...]8FA iat-mode=0
 
-To connect from a Mac or Linux client, edit `torrc` to use the IP address and assigned port, for example:
+    $ sudo tail -n1 /var/lib/tor/pt_state/obfs4_bridgeline.txt | awk '{print $1,$2,"104.197.215.107:10022",$(NF-1),$(NF)}'
+    Bridge obfs4 104.197.215.107:10022 cert=4ar[...]8FA iat-mode=0
+
+To connect from a client, edit `torrc` to use the IP address and assigned port, for example:
 
     UseBridges 1
     Bridge obfs4 104.197.215.107:10022 cert=4ar[...]8FA iat-mode=0
@@ -753,11 +739,9 @@ Using [Tor Browser](https://www.torproject.org/projects/torbrowser.html.en), sel
 
 <img width="500" src="https://cloud.githubusercontent.com/assets/12475110/15528945/844fe950-2238-11e6-8348-3084cf6341d9.png">
 
-To connect from Android, download [Orbot](https://play.google.com/store/apps/details?id=org.torproject.android&hl=en) and [Orfox](https://play.google.com/store/apps/details?id=info.guardianproject.orfox&hl=en) applications and configure a custom bridge in Orbot settings.
+### Onion Service
 
-### Hidden Service
-
-**Optional** To host a [hidden service](https://www.torproject.org/docs/hidden-services.html.en), append something like this to `/etc/tor/torrc` on the server (for example, to use with a Web server):
+**Optional** To host an [onion service](https://www.torproject.org/docs/onion-services), append something like this to `/etc/tor/torrc` on the server (for example, to use with a Web server):
 
     HiddenServiceDir /var/lib/tor/hidden_service/
     HiddenServicePort 80 127.0.0.1:80
@@ -766,12 +750,12 @@ Restart Tor:
 
     $ sudo service tor restart
 
-Get the hidden service hostname:
+Get the service hostname:
 
     $ sudo cat /var/lib/tor/hidden_service/hostname
     pqccxgxxxxxxxl5h.onion
 
-You can also host services like [ssh](https://tor.stackexchange.com/questions/123/how-can-i-anonymize-my-ssh-traffic-using-the-tor-network) as a hidden service.
+You can also host services like [ssh](https://tor.stackexchange.com/questions/123/how-can-i-anonymize-my-ssh-traffic-using-the-tor-network) as a onion service.
 
 To generate a specific .onion hostname, [some](https://security.stackexchange.com/questions/29772/how-do-you-get-a-specific-onion-address-for-your-hidden-service) [software](https://github.com/ReclaimYourPrivacy/eschalot) exists.
 
@@ -808,14 +792,28 @@ Run the script, accepting prompts with `y` to sign certificates and commit chang
     [...]
     Sign the certificate? [y/n]:y
 
-If there were no errors, the script created private and public keys for a certificate authority, intemediate authority, server and one client:
+If there were no errors, the script created private and public keys for a main certificate authority, intermediate certificate authority, a server and a client - along with certificate request and configuration files:
 
-    $ ls ~/pki
-    ca.key      client.csr  demoCA            intermediate.pem  server.cnf  server.pem
-    ca.pem      client.key  intermediate.csr  intermediate.srl  server.csr
-    client.cnf  client.pem  intermediate.key  pki.sh            server.key
+    $ ls -lX | awk '{print $(NF)}'
+    64K
+    demoCA
+    client.cnf
+    server.cnf
+    client.csr
+    intermediate.csr
+    server.csr
+    ca.key
+    client.key
+    intermediate.key
+    server.key
+    ca.pem
+    client.pem
+    intermediate.pem
+    server.pem
+    pki.sh
+    intermediate.srl
 
-Check any of the certificate files (`.pem` extension) with OpenSSL:
+To check a certificate file (`.pem` extension) with OpenSSL:
 
 ```
 $ openssl x509 -in ca.pem -noout -subject -issuer -enddate
@@ -824,9 +822,7 @@ issuer=CN = Example Authority
 notAfter=Dec 1 00:00:00 2018 GMT
 ```
 
-You could also use [OpenVPN/easy-rsa](https://github.com/OpenVPN/easy-rsa).
-
-You could also purchase [trusted certificates](https://en.wikipedia.org/wiki/DigiNotar#Issuance_of_fraudulent_certificates) from a variety of online vendors. There are also [free](https://letsencrypt.org/) [options](https://www.startssl.com/Support?v=1) available from public certificate authorities. Use these if you can't install your own certificate authority on clients.
+You could also use [OpenVPN/easy-rsa](https://github.com/OpenVPN/easy-rsa) or [Let's Encrypt](https://letsencrypt.org).
 
 ## OpenVPN
 
