@@ -7,7 +7,6 @@
   * [Update domain records](#update-domain-records)
   * [Setup access](#setup-access)
   * [Connect](#connect)
-  * [Configure sudo](#configure-sudo)
   * [Apply updates](#apply-updates)
   * [Configure instance](#configure-instance)
     + [tmux](#tmux)
@@ -185,16 +184,6 @@ To verify this fingerprint, you will need to check the instance Serial Console o
 
 See [YubiKey Guide](https://github.com/drduh/YubiKey-Guide) to further secure SSH keys.
 
-## Configure sudo
-
-To set a password for sudo:
-
-    $ passwd $USER
-
-Or to allow sudo without a password for [convenience](https://security.stackexchange.com/questions/45712/how-secure-is-nopasswd-in-passwordless-sudo-mode):
-
-    $ echo "$USER ALL=(ALL) NOPASSWD:ALL" | sudo tee --append /etc/sudoers
-
 ## Apply updates
 
 Install pending updates:
@@ -368,23 +357,24 @@ Pick an upstream name server. To use Google resolvers, add `server=169.254.169.2
     $ echo "nameserver 169.254.169.254" | sudo tee /etc/resolv.dnsmasq
     nameserver 169.254.169.254
 
-**Optional** Install a DNS [blacklist](https://en.wikipedia.org/wiki/Hosts_(file)) ([alternative method](https://debian-administration.org/article/535/Blocking_ad_servers_with_dnsmasq)), for example:
+**Optional** Install a DNS [blocklist](https://en.wikipedia.org/wiki/Hosts_(file)) ([alternative method](https://debian-administration.org/article/535/Blocking_ad_servers_with_dnsmasq)), for example:
 
-    $ sudo curl https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts -o /etc/blacklist
+    $ sudo curl https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts -o /etc/dns-blocklist
 
 Append additional lists, for example:
 
-    $ curl https://raw.githubusercontent.com/jmdugan/blocklists/master/corporations/facebook/facebook.com | sudo tee --append /etc/blacklist
+    $ curl https://raw.githubusercontent.com/jmdugan/blocklists/master/corporations/facebook/facebook.com | sudo tee --append /etc/dns-blocklist
 
 Check the file length and that no non-localhost addresses were appended:
 
-    $ wc -l /etc/blacklist
-    50741 /etc/blacklist
+    $ wc -l /etc/dns-blocklist
+    66290 /etc/dns-blocklist
 
-    $ grep -ve "^127.0.0.1\|^0.0.0.0\|^#" /etc/blacklist | sort | uniq
-    255.255.255.255 broadcasthost
+    $ grep -ve "^127.0.0.1\|^0.0.0.0\|^#" /etc/dns-blocklist | sort | uniq
+    ::1 ip6-localhost
+    ::1 ip6-loopback
     ::1 localhost
-    fe80::1%lo0 localhost
+    255.255.255.255 broadcasthost
 
 Restart the service:
 
@@ -393,23 +383,22 @@ Restart the service:
 Check the log to make sure it is running:
 
     $ sudo tail -F /var/log/dnsmasq
-    started, version 2.72 cachesize 2000
-    IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect
-    using nameserver 127.0.0.1#40
-    reading /etc/resolv.dnsmasq
-    using nameserver 169.254.169.254#53
-    read /etc/hosts - 5 addresses
-    read /etc/blacklist - 26995 addresses
+    started, version 2.76 cachesize 2000
+    compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
+    using nameserver 8.8.8.8#53
+    using nameserver 8.8.4.4#53
+    read /etc/hosts - 6 addresses
+    read /etc/dns-blocklist - 63894 addresses
 
 If it fails to start, try running it manually:
 
     $ sudo dnsmasq -C /etc/dnsmasq.conf -d
     dnsmasq: started, version 2.76 cachesize 2000
     dnsmasq: compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
-    dnsmasq: reading /etc/resolv.dnsmasq
-    dnsmasq: using nameserver 169.254.169.254#53
+    dnsmasq: using nameserver 8.8.8.8#53
+    dnsmasq: using nameserver 8.8.4.4#53
     dnsmasq: read /etc/hosts - 6 addresses
-    dnsmasq: read /etc/blacklist - 43638 addresses
+    dnsmasq: read /etc/dns-blocklist - 63894 addresses
 
 Query locally for an *A record* to confirm dnsmasq is working:
 
@@ -574,7 +563,7 @@ Install Privoxy on the server:
 
 Use my [configuration](https://github.com/drduh/config/blob/master/privoxy):
 
-    $ sudo curl -o /etc/privoxy/config https://raw.githubusercontent.com/drduh/config/master/privoxy
+    $ sudo curl -o /etc/privoxy/config https://raw.githubusercontent.com/drduh/config/master/privoxy/config
 
 Or [customize your own](https://www.privoxy.org/faq/configuration.html).
 
@@ -612,7 +601,7 @@ In another client terminal:
     $ curl --proxy socks5h://127.0.0.1:7000 https://icanhazip.com/
     104.197.215.107
 
-Watch Privoxy logs (you may wish to disable logging by removing `debug` lines in `/etc/privoxy/config`):
+Watch Privoxy logs:
 
     $ sudo tail -F /var/log/privoxy/logfile
 
