@@ -88,7 +88,7 @@ Create a dedicated network:
 Create an instance:
 
     $ gcloud beta compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --subnet=$NETWORK \
-      --machine-type=$TYPE --network-tier=PREMIUM --can-ip-forward --no-restart-on-failure --maintenance-policy=TERMINATE \
+      --machine-type=$TYPE --network-tier=PREMIUM --can-ip-forward --no-restart-on-failure --maintenance-policy=MIGRATE \
       --no-service-account --no-scopes --image=$IMAGE --image-project=debian-cloud \
       --boot-disk-size=40GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
 
