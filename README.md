@@ -164,7 +164,7 @@ $ ssh-add -L
 ssh-rsa AAAAB4NzaC1yc2EAAAADAQABAAACAz[...]zreOKM+HwpkHzcy9DQcVG2Nw== cardno:000605553211
 ```
 
-Or create a new [4096-bit](http://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into the instance via SSH (pass-phrase is optional):
+Or create a new [4096-bit](https://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into the instance via SSH (pass-phrase is optional):
 
 ```console
 $ ssh-keygen -t rsa -b 4096 -C 'sysadm' -f ~/.ssh/duh
@@ -187,7 +187,7 @@ Select **Save**.
 
 ## Connect
 
-On a client, edit `~/.ssh/config` to [use](http://nerderati.com/2011/03/17/simplify-your-life-with-an-ssh-config-file/) the new key:
+On a client, edit `~/.ssh/config` to [use](https://nerderati.com/2011/03/17/simplify-your-life-with-an-ssh-config-file/) the new key:
 
 ```
 Host duh
@@ -237,7 +237,7 @@ Use my [configuration](https://github.com/drduh/config/blob/master/tmux.conf):
 $ curl -o ~/.tmux.conf https://raw.githubusercontent.com/drduh/config/master/tmux.conf
 ```
 
-Or [customize your own](http://www.hamvocke.com/blog/a-guide-to-customizing-your-tmux-conf/).
+Or [customize your own](https://www.hamvocke.com/blog/a-guide-to-customizing-your-tmux-conf/).
 
 Run `tmux` and open a new tab with `` `-c `` or specified keyboard shortcut.
 
@@ -251,7 +251,7 @@ When you reconnect to the instance, type `tmux attach -t <session name>` (or `tm
 
 ### Zsh
 
-[Z shell](http://www.zsh.org/) is an interactive login shell with many features and improvements over Bourne shell.
+[Z shell](https://www.zsh.org/) is an interactive login shell with many features and improvements over Bourne shell.
 
 To set the login shell for the current user to Zsh:
 
@@ -296,7 +296,7 @@ $ ssh-keygen -t rsa -b 4096 -f ssh_host_key -C '' -N ''
 Move them into place and lock down file permissions:
 
 ```console
-$ sudo mv ssh_host_key{,.pub} /etc/ssh
+$ sudo mv ssh_host_key ssh_host_key.pub /etc/ssh/
 
 $ sudo chown root:root /etc/ssh/ssh_host_key /etc/ssh/ssh_host_key.pub
 ```
@@ -304,7 +304,7 @@ $ sudo chown root:root /etc/ssh/ssh_host_key /etc/ssh/ssh_host_key.pub
 Use my [configuration](https://github.com/drduh/config/blob/master/sshd_config):
 
 ```console
-$ sudo curl -o /etc/ssh/sshd_config https://raw.githubusercontent.com/drduh/config/master/sshd_config
+$ curl https://raw.githubusercontent.com/drduh/config/master/sshd_config | sudo tee /etc/ssh/sshd_config
 ```
 
 Or [customize your own](https://www.freebsd.org/cgi/man.cgi?query=sshd_config&sektion=5).
@@ -392,7 +392,7 @@ See [YubiKey Guide](https://github.com/drduh/YubiKey-Guide) to learn more about 
 
 ## Dnsmasq
 
-[Dnsmasq](http://www.thekelleys.org.uk/dnsmasq/doc.html) is a lightweight DNS and DHCP server with many [useful](http://www.cambus.net/nxdomain-hijacking-dnsmasq-to-the-rescue/) [features](http://www.g-loaded.eu/2010/09/18/caching-nameserver-using-dnsmasq/).
+[Dnsmasq](http://www.thekelleys.org.uk/dnsmasq/doc.html) is a lightweight DNS and DHCP server with many [useful](https://www.cambus.net/nxdomain-hijacking-dnsmasq-to-the-rescue/) [features](https://www.g-loaded.eu/2010/09/18/caching-nameserver-using-dnsmasq/).
 
 Install Dnsmasq:
 
@@ -403,7 +403,7 @@ $ sudo apt-get -y install dnsmasq
 Use my [configuration](https://github.com/drduh/config/blob/master/dnsmasq.conf):
 
 ```console
-$ sudo curl -o /etc/dnsmasq.conf https://raw.githubusercontent.com/drduh/config/master/dnsmasq.conf
+$ curl https://raw.githubusercontent.com/drduh/config/master/dnsmasq.conf | sudo tee /etc/dnsmasq.conf
 ```
 
 Or [customize your own](http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html).
@@ -418,13 +418,13 @@ nameserver 169.254.169.254
 **Optional** Install a DNS [blocklist](https://en.wikipedia.org/wiki/Hosts_(file)) ([alternative method](https://debian-administration.org/article/535/Blocking_ad_servers_with_dnsmasq)), for example:
 
 ```console
-$ sudo curl https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts -o /etc/dns-blocklist
+$ curl https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts | sudo tee /etc/dns-blocklist
 ```
 
 Append any additional lists, for example:
 
 ```console
-$ curl https://raw.githubusercontent.com/jmdugan/blocklists/master/corporations/facebook/facebook.com | sudo tee --append /etc/dns-blocklist
+$ curl https://raw.githubusercontent.com/Sinfonietta/hostfiles/master/social-hosts | sudo tee --append /etc/dns-blocklist
 ```
 
 Check the file length and that no non-localhost addresses were appended:
@@ -486,7 +486,7 @@ $ dig +short a google.to @127.0.0.1
 
 > If you are running your own private or public recursive DNS server, adding support for the DNSCrypt protocol requires installing [DNSCrypt-Wrapper](https://github.com/Cofyc/dnscrypt-wrapper), the server-side DNSCrypt proxy.
 
-To configure a private or public DNSCrypt server, first install [libsodium](https://github.com/jedisct1/libsodium) and [libevent](http://libevent.org/):
+To configure a private or public DNSCrypt server, first install [libsodium](https://github.com/jedisct1/libsodium) and [libevent](https://libevent.org/):
 
 ```console
 $ sudo apt-get -y install libsodium-dev libevent-dev
@@ -663,7 +663,7 @@ $ sudo apt-get -y install privoxy
 Use my [configuration](https://github.com/drduh/config/blob/master/privoxy):
 
 ```console
-$ sudo curl -o /etc/privoxy/config https://raw.githubusercontent.com/drduh/config/master/privoxy/config
+$ curl https://raw.githubusercontent.com/drduh/config/master/privoxy/config | sudo tee /etc/privoxy/config
 ```
 
 Or [customize your own](https://www.privoxy.org/faq/configuration.html).
@@ -741,7 +741,7 @@ $ sudo arm
 Use my [configuration](https://github.com/drduh/config/blob/master/torrc):
 
 ```console
-$ sudo curl -o /etc/tor/torrc https://raw.githubusercontent.com/drduh/config/master/torrc
+$ curl https://raw.githubusercontent.com/drduh/config/master/torrc | sudo tee /etc/tor/torrc
 ```
 
 ### DNS over Tor
@@ -1194,7 +1194,7 @@ See [macOS-Security-and-Privacy-Guide#vpn](https://github.com/drduh/macOS-Securi
 
 **Optional** You may want to run a Web server to serve static or dynamic pages.
 
-Install [Lighttpd](https://www.lighttpd.net/) with [ModMagnet](http://redmine.lighttpd.net/projects/1/wiki/Docs_ModMagnet) (optional):
+Install [Lighttpd](https://www.lighttpd.net/) with [ModMagnet](https://redmine.lighttpd.net/projects/1/wiki/Docs_ModMagnet) (optional):
 
 ```console
 $ sudo apt-get -y install lighttpd lighttpd-mod-magnet
@@ -1203,9 +1203,9 @@ $ sudo apt-get -y install lighttpd lighttpd-mod-magnet
 Use my [configuration](https://github.com/drduh/config/blob/master/lighttpd/lighttpd.conf):
 
 ```console
-$ sudo curl -o /etc/lighttpd/lighttpd.conf https://raw.githubusercontent.com/drduh/config/master/lighttpd/lighttpd.conf
+$ curl https://raw.githubusercontent.com/drduh/config/master/lighttpd/lighttpd.conf | sudo tee /etc/lighttpd/lighttpd.conf
 
-$ sudo curl -o /etc/lighttpd/magnet.luau https://raw.githubusercontent.com/drduh/config/master/lighttpd/magnet.luau
+$ curl https://raw.githubusercontent.com/drduh/config/master/lighttpd/magnet.luau | sudo tee /etc/lighttpd/magnet.luau
 ```
 
 Or [customize your own](https://redmine.lighttpd.net/projects/1/wiki/TutorialConfiguration).
@@ -1300,8 +1300,8 @@ $ cd ~/pki && cat server.pem intermediate.pem ca.pem | sudo tee /etc/pki/xmpp-ce
 Or generate a new self-signed certificate:
 
 ```console
-$ openssl req -x509 -newkey rsa:4096 -days 365 -sha256 -subj "/CN=server.name" \
-  -keyout /etc/pki/xmpp-key.pem -nodes -out /etc/pki/xmpp-cert.pem
+$ sudo openssl req -x509 -newkey rsa:4096 -days 365 -sha512 -subj "/CN=server.name" \
+  -nodes -keyout /etc/pki/xmpp-key.pem -out /etc/pki/xmpp-cert.pem
 ```
 
 Set file ownership:
@@ -1313,7 +1313,7 @@ $ sudo chown prosody:prosody /etc/pki/xmpp-*.pem
 Restart Prosody:
 
 ```console
-    $ sudo service prosody restart
+$ sudo service prosody restart
 ```
 
 Ensure it's running and listening:
