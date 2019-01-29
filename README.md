@@ -222,7 +222,11 @@ $ sudo apt-get upgrade -y
 Install any necessary software, for example:
 
 ```console
-$ sudo apt-get -y install zsh vim tmux dnsutils whois git gcc autoconf make lsof tcpdump htop tree
+$ sudo apt-get -y install \
+  zsh vim tmux dnsutils whois \
+  git gcc autoconf make \
+  lsof tcpdump htop tree \
+  apt-transport-https
 ```
 
 ## Configure instance
@@ -777,18 +781,48 @@ $ export GOPATH=$(mktemp -d) ; echo $GOPATH
 $ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 ```
 
-**Note** If this fails for any reason, you likely need a more recent version of [Go](https://debian-administration.org/article/727/Installing_the_Go_programming_language_on_Debian_GNU/Linux).
+**Note** If this fails for any reason, you likely need a more recent version of [Go](https://debian-administration.org/article/727/Installing_the_Go_programming_language_on_Debian_GNU/Linux):
+
+```console
+$ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
+# github.com/refraction-networking/utls
+/tmp/tmp.s8JQjim8W7/src/github.com/refraction-networking/utls/tls.go:106: undefined: time.Until
+# golang.org/x/net/http2
+/tmp/tmp.s8JQjim8W7/src/golang.org/x/net/http2/server.go:214: h1.IdleTimeout undefined (type *http.Server has no field or method
+ IdleTimeout)
+/tmp/tmp.s8JQjim8W7/src/golang.org/x/net/http2/server.go:215: h1.IdleTimeout undefined (type *http.Server has no field or method
+[...]
+
+$ go version
+go version go1.7.4 linux/amd64
+
+$ curl -O https://dl.google.com/go/go1.11.4.linux-amd64.tar.gz
+
+$ sha256sum go1.11.4.linux-amd64.tar.gz
+fb26c30e6a04ad937bbc657a1b5bba92f80096af1e8ee6da6430c045a8db3a5b  go1.11.4.linux-amd64.tar.gz
+
+$ sudo tar -C /usr/local -xzf go1.11.4.linux-amd64.tar.gz
+
+$ /usr/local/go/bin/go version
+go version go1.11.4 linux/amd64
+
+$ /usr/local/go/bin/go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
+$ echo $?
+0
+```
 
 Confirm it's built:
 
 ```console
 $ $GOPATH/bin/obfs4proxy -version
-obfs4proxy-0.0.8-dev
+obfs4proxy-0.0.9-dev
 ```
 
 Install it:
 
 ```console
+$ sudo service tor stop
+
 $ sudo cp $GOPATH/bin/obfs4proxy /usr/local/bin
 ```
 
@@ -817,8 +851,8 @@ $ sudo service tor restart
 Ensure `obfs4proxy` is accepting connections:
 
 ```console
-$ sudo lsof -Pni | grep 10022
-obfs4prox 6685     debiant-tor    4u  IPv6  44617      0t0  TCP *:10022 (LISTEN)
+$ sudo lsof -Pni | grep obfs
+obfs4prox 23567    debian-tor     3u  IPv6 309768      0t0  TCP *:10022 (LISTEN)
 ```
 
 Ensure connections from the server over Tor are possible:
