@@ -1,45 +1,6 @@
-- [Introduction](#introduction)
-- [Domain name](#domain-name)
-- [Server setup](#server-setup)
-  * [Create instance](#create-instance)
-    + [Command-line](#command-line)
-    + [Web UI](#web-ui)
-  * [Update domain records](#update-domain-records)
-  * [Setup access](#setup-access)
-  * [Connect](#connect)
-  * [Apply updates](#apply-updates)
-  * [Configure instance](#configure-instance)
-    + [tmux](#tmux)
-    + [Zsh](#zsh)
-    + [Vim](#vim)
-    + [SSH](#ssh)
-    + [GPG](#gpg)
-- [Services](#services)
-  * [Dnsmasq](#dnsmasq)
-  * [DNSCrypt](#dnscrypt)
-    + [Blacklist](#blacklist)
-  * [Privoxy](#privoxy)
-  * [Tor](#tor)
-    + [DNS over Tor](#dns-over-tor)
-    + [Obfuscation](#obfuscation)
-    + [Onion Service](#onion-service)
-  * [Certificates](#certificates)
-  * [OpenVPN](#openvpn)
-  * [Web Server](#web-server)
-  * [XMPP](#xmpp)
-    + [Federating](#federating)
-    + [Using](#using)
-- [Conclusion](#conclusion)
-
-# Introduction
-
 This is a step-by-step guide to configuring and managing a domain, remote server and hosted services, such as VPN, a private and obfuscated Tor bridge, and encrypted chat, using the [Debian GNU/Linux](https://www.debian.org/releases/jessie/amd64/ch01s03.html.en) operating system and other free software.
 
-I like to set up my servers and services in these ways. This guide is **not** meant to be a canonical guide on best practices. I am **not** responsible for anything you do nor break by following any of these steps.
-
 This guide is written for [Google Compute Engine](https://cloud.google.com/compute/) (GCE), but will very likely work well on other service providers, such as Linode or Amazon AWS, or any computer which will run GNU/Linux, such as a [PC Engines APU](https://www.pcengines.ch/apu2.htm) in a closet. It uses recommended configuration files from [drduh/config](https://github.com/drduh/config).
-
-If you have a suggestion or spot an error, don't hack me, rather please send a [pull request](https://github.com/drduh/Debian-Privacy-Server-Guide/pulls) or [open an issue](https://github.com/drduh/Debian-Privacy-Server-Guide/issues/new) on GitHub.
 
 # Domain name
 
@@ -74,33 +35,41 @@ If it doesn't look right, log in to Tonic or your registrar and update DNS infor
 
 Download and configure the gcloud [command line tool](https://cloud.google.com/sdk/gcloud/).
 
+Log in and enter the verification code:
+
+```console
+$ gcloud auth login
+
+$ gcloud set project debian-privsec-cloud
+```
+
 Set the `PROJECT`, `INSTANCE`, `NETWORK`, [`TYPE`](https://cloud.google.com/compute/docs/machine-types), and [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/) variables, as well as a recent image version:
 
 ```console
-$ IMAGE=$(gcloud beta compute images list | grep debian | awk '{print $1}')
 $ PROJECT=debian-privsec-cloud
 $ INSTANCE=debian-privsec-standard
 $ NETWORK=debian-privsec-net
 $ TYPE=n1-standard-1
 $ ZONE=us-east1-a
+$ IMAGE=$(gcloud compute images list | grep debian | awk '{print $1}')
 ```
 
 Create a dedicated network:
 
 ```console
-$ gcloud beta compute networks create $NETWORK
+$ gcloud compute networks create $NETWORK
 ```
 
 Create an instance:
 
 ```console
-$ gcloud beta compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --subnet=$NETWORK \
+$ gcloud compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --subnet=$NETWORK \
   --machine-type=$TYPE --network-tier=PREMIUM --can-ip-forward --no-restart-on-failure --maintenance-policy=MIGRATE \
   --no-service-account --no-scopes --image=$IMAGE --image-project=debian-cloud \
   --boot-disk-size=40GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
 ```
 
-Add a rule for remote access:
+Add a firewall rule for remote access:
 
 ```console
 $ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK --allow tcp:22 --source-ranges $(curl -s https://icanhazip.com)
@@ -115,8 +84,6 @@ Navigate to [VM instances](https://console.cloud.google.com/compute/instances) a
 Pick a name, zone and machine type. A "standard" single-vCPU or even shared "micro" or "small" machine with *Debian 9* are fine defaults:
 
 <img width="400" src="https://cloud.githubusercontent.com/assets/12475110/15526750/bebb0ddc-2223-11e6-8be5-fc8af25bfe77.png">
-
-A **Service account** is not necessary and can be disabled.
 
 Select the **Networking** tab and select your pre-configured network, if any. Apply any desired network tags while here, too.
 
@@ -193,6 +160,7 @@ On a client, edit `~/.ssh/config` to [use](https://nerderati.com/2011/03/17/simp
 Host duh
   User sysadm
   HostName duh.to
+  #HostName 104.197.215.107
   IdentityFile ~/.ssh/duh
 ```
 
@@ -208,15 +176,14 @@ Are you sure you want to continue connecting (yes/no)?
 
 To verify this fingerprint, you will need to check the instance Serial Console output, most likely using the Web UI.
 
-See [YubiKey Guide](https://github.com/drduh/YubiKey-Guide) to further secure SSH keys.
+See [YubiKey Guide](https://github.com/drduh/YubiKey-Guide) to secure SSH keys.
 
 ## Apply updates
 
 Install pending updates:
 
 ```console
-$ sudo apt-get update
-$ sudo apt-get upgrade -y
+$ sudo apt-get update && sudo apt-get upgrade -y
 ```
 
 Install any necessary software, for example:
@@ -230,6 +197,12 @@ $ sudo apt-get -y install \
 ```
 
 ## Configure instance
+
+**Optional** Clone the configuration repository:
+
+```console
+$ git clone https://github.com/drduh/config
+```
 
 ### tmux
 
@@ -282,7 +255,7 @@ Use my [configuration](https://github.com/drduh/config/blob/master/vimrc):
 ```console
 $ curl -o ~/.vimrc https://raw.githubusercontent.com/drduh/config/master/vimrc
 
-$ mkdir -p ~/.vim/{swaps,backups,undo}
+$ mkdir -p ~/.vim/{backup,swap,undo}
 ```
 
 Or [customize your own vimrc](https://stackoverflow.com/questions/164847/what-is-in-your-vimrc).
@@ -303,6 +276,8 @@ Move them into place and lock down file permissions:
 $ sudo mv ssh_host_key ssh_host_key.pub /etc/ssh/
 
 $ sudo chown root:root /etc/ssh/ssh_host_key /etc/ssh/ssh_host_key.pub
+
+$ sudo chmod 0600 /etc/ssh/ssh_host_key
 ```
 
 Use my [configuration](https://github.com/drduh/config/blob/master/sshd_config):
@@ -331,8 +306,8 @@ On a client, edit `~/.ssh/config` to make any modifications, for example by addi
 
 ```
 Host duh
-  HostName duh.to
   User sysadm
+  HostName duh.to
   IdentityFile ~/.ssh/duh
   Port 2222
 ```
@@ -348,7 +323,7 @@ RSA key fingerprint is 19:de:..:fe:58:3a.
 Are you sure you want to continue connecting (yes/no)? yes
 ```
 
-To check the sha256 fingerprint of the host key:
+To check the sha256 fingerprint of the host key from the established session:
 
 ```console
 $ ssh-keygen -E sha256 -lf /etc/ssh/ssh_host_key.pub
@@ -366,16 +341,10 @@ $ ssh-keygen -E md5 -lf /etc/ssh/ssh_host_key.pub
 
 [GNU Privacy Guard](https://www.gnupg.org/) is used to verify signatures for downloaded software, encrypt and decrypt files, text, email, and much more.
 
-Edit the [configuration](https://help.riseup.net/en/security/message-security/openpgp/best-practices):
+Use my [configuration](https://github.com/drduh/config/blob/master/gpg.conf):
 
 ```console
-$ mkdir ~/.gnupg && vim ~/.gnupg/gpg.conf
-```
-
-Or use my [configuration](https://github.com/drduh/config/blob/master/gpg.conf):
-
-```console
-$ mkdir ~/.gnupg && curl -o ~/.gnupg/gpg.conf https://raw.githubusercontent.com/drduh/config/master/gpg.conf
+$ mkdir ~/.gnupg ; curl -o ~/.gnupg/gpg.conf https://raw.githubusercontent.com/drduh/config/master/gpg.conf
 ```
 
 To use GPG to symmetrically encrypt a directory into a single file:
@@ -589,10 +558,12 @@ $ tail -f dnscrypt.log
 [NOTICE] dnscrypt-proxy is ready - live servers: 1
 ```
 
-Or install dnscrypt as a service:
+Or install and start it as a service:
 
 ```console
 $ sudo ./dnscrypt-proxy -service install
+
+$ sudo ./dnscrypt-proxy -service start
 ```
 
 Outgoing DNS packets will now be encrypted from the client.
@@ -637,7 +608,7 @@ On the client, clone the dnscrypt-proxy repository and use the included Python s
 
 ```console
 $ git clone https://github.com/jedisct1/dnscrypt-proxy
-$ cd ~/git/dnscrypt-proxy/utils/generate-domains-blacklists
+$ cd dnscrypt-proxy/utils/generate-domains-blacklists
 
 $ python2 generate-domains-blacklist.py > blacklist
 Loading data from [file:domains-blacklist-local-additions.txt]
@@ -668,6 +639,8 @@ Use my [configuration](https://github.com/drduh/config/blob/master/privoxy):
 
 ```console
 $ curl https://raw.githubusercontent.com/drduh/config/master/privoxy/config | sudo tee /etc/privoxy/config
+
+$ curl https://raw.githubusercontent.com/drduh/config/master/privoxy/user.action | sudo tee /etc/privoxy/user.action
 ```
 
 Or [customize your own](https://www.privoxy.org/faq/configuration.html).
@@ -796,31 +769,27 @@ $ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 $ go version
 go version go1.7.4 linux/amd64
 
-$ curl -O https://dl.google.com/go/go1.11.4.linux-amd64.tar.gz
+$ curl -O https://dl.google.com/go/go1.12.linux-amd64.tar.gz
 
-$ sha256sum go1.11.4.linux-amd64.tar.gz
-fb26c30e6a04ad937bbc657a1b5bba92f80096af1e8ee6da6430c045a8db3a5b  go1.11.4.linux-amd64.tar.gz
+$ sha256sum go1.12.linux-amd64.tar.gz
+750a07fef8579ae4839458701f4df690e0b20b8bcce33b437e4df89c451b6f13
 
-$ sudo tar -C /usr/local -xzf go1.11.4.linux-amd64.tar.gz
+$ sudo tar -C /usr/local -xzf go1.12.linux-amd64.tar.gz
 
 $ /usr/local/go/bin/go version
-go version go1.11.4 linux/amd64
+go version go1.12 linux/amd64
 
 $ /usr/local/go/bin/go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 $ echo $?
 0
 ```
 
-Confirm it's built:
+Confirm it's built and install it:
 
 ```console
 $ $GOPATH/bin/obfs4proxy -version
-obfs4proxy-0.0.9-dev
-```
+obfs4proxy-0.0.10-dev
 
-Install it:
-
-```console
 $ sudo service tor stop
 
 $ sudo cp $GOPATH/bin/obfs4proxy /usr/local/bin
@@ -852,7 +821,7 @@ Ensure `obfs4proxy` is accepting connections:
 
 ```console
 $ sudo lsof -Pni | grep obfs
-obfs4prox 23567    debian-tor     3u  IPv6 309768      0t0  TCP *:10022 (LISTEN)
+obfs4prox 6507 debian-tor    3u  IPv6  62584      0t0  TCP *:10022 (LISTEN)
 ```
 
 Ensure connections from the server over Tor are possible:
@@ -1000,7 +969,7 @@ You could also use [OpenVPN/easy-rsa](https://github.com/OpenVPN/easy-rsa) or [L
 Starting with the client, install OpenVPN:
 
 ```console
-$ sudo apt-get -y install openvpnA
+$ sudo apt-get -y install openvpn
 ```
 
 Use my [configuration](https://github.com/drduh/config/blob/master/server.ovpn):
@@ -1228,7 +1197,7 @@ See [macOS-Security-and-Privacy-Guide#vpn](https://github.com/drduh/macOS-Securi
 
 **Optional** You may want to run a Web server to serve static or dynamic pages.
 
-Install [Lighttpd](https://www.lighttpd.net/) with [ModMagnet](https://redmine.lighttpd.net/projects/1/wiki/Docs_ModMagnet) (optional):
+Install [Lighttpd](https://www.lighttpd.net/) with [ModMagnet](https://redmine.lighttpd.net/projects/1/wiki/Docs_ModMagnet):
 
 ```console
 $ sudo apt-get -y install lighttpd lighttpd-mod-magnet
@@ -1445,9 +1414,9 @@ SHA256 Fingerprint=9B759D41E3DE30F9D2F902027D792B65D950A98BBB6D6D56BE7F2528453BF
 "ServerCertificateSHA256": "9B759D41E3DE30F9D2F902027D792B65D950A98BBB6D6D56BE7F2528453BF8E9"
 ```
 
-If an error occurs while attempting to connect, ssh to the server and check `/var/log/prosody/prosody.err`.
+If an error occurs while attempting to connect, check `/var/log/prosody/prosody.err` on the server.
 
-# Conclusion
+# Finish
 
 Reboot the instance and make sure everything still works. If not, you'll need to automate certain programs to start up on their own (for example, Privoxy will fail to start if OpenVPN does not first create a tunnel interface to bind to).
 
