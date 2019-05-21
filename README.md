@@ -1,10 +1,10 @@
-This is a step-by-step guide to configuring and managing a domain, remote server and hosted services, such as VPN, a private and obfuscated Tor bridge, and encrypted chat, using the [Debian GNU/Linux](https://www.debian.org/releases/jessie/amd64/ch01s03.html.en) operating system and other free software.
+This is a guide to configuring and managing a domain and remote host with services such as VPN, obfuscated Tor bridge, and encrypted chat, using the [Debian GNU/Linux](https://www.debian.org/releases/jessie/amd64/ch01s03.html.en) operating system and other free software.
 
-This guide is written for [Google Compute Engine](https://cloud.google.com/compute/) (GCE), but will very likely work well on other service providers, such as Linode or Amazon AWS, or any computer which will run GNU/Linux, such as a [PC Engines APU](https://www.pcengines.ch/apu2.htm) in a closet. It uses recommended configuration files from [drduh/config](https://github.com/drduh/config).
+This guide is written for [Google Compute Engine](https://cloud.google.com/compute/), but will very work with other providers, such as Linode or Amazon, or on any computer which will run GNU/Linux, such as a [PC Engines APU](https://www.pcengines.ch/apu2.htm) in a closet. This guide uses configuration files from [drduh/config](https://github.com/drduh/config).
 
 # Domain name
 
-If you are not sure what a domain name is, see the [Wikipedia article](https://en.wikipedia.org/wiki/Domain_name) and decide if you would like to create one at all.
+If you are not sure what a domain name is, skip this section for now.
 
 I had decided to purchase [duh.to](http://duh.to/) from [Tonic](https://www.tonic.to/), a `.to` top level domain registrar. A 5 year registration cost $200 - a steep price, but not unreasonable for an esoteric [ccTLD](https://en.wikipedia.org/wiki/.to) with many available short, memorable, three-letter domain names. Tonic.to also does not maintain [a public whois database](https://www.tonic.to/faq.htm#16), which is a privacy advantage.
 
@@ -29,24 +29,22 @@ If it doesn't look right, log in to Tonic or your registrar and update DNS infor
 
 # Server setup
 
-## Create instance
-
-### Command-line
-
 Download and configure the gcloud [command line tool](https://cloud.google.com/sdk/gcloud/).
 
-Log in and enter the verification code:
+Log in and enter the verification code, then create a project with any name:
 
 ```console
 $ gcloud auth login
 
-$ gcloud set project debian-privsec-cloud
+$ gcloud projects create mlipmnyadedgzxruqj
+
+$ gcloud config set project mlipmnyadedgzxruqj
 ```
 
-Set the `PROJECT`, `INSTANCE`, `NETWORK`, [`TYPE`](https://cloud.google.com/compute/docs/machine-types), and [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/) variables, as well as a recent image version:
+Set the `PROJECT`, `INSTANCE`, `NETWORK`, [`TYPE`](https://cloud.google.com/compute/docs/machine-types), and [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/) variables, as well as a recent `IMAGE`:
 
 ```console
-$ PROJECT=debian-privsec-cloud
+$ PROJECT=mlipmnyadedgzxruqj
 $ INSTANCE=debian-privsec-standard
 $ NETWORK=debian-privsec-net
 $ TYPE=n1-standard-1
@@ -54,7 +52,7 @@ $ ZONE=us-east1-a
 $ IMAGE=$(gcloud compute images list | grep debian | awk '{print $1}')
 ```
 
-Create a dedicated network:
+Create a new network:
 
 ```console
 $ gcloud compute networks create $NETWORK
@@ -69,25 +67,13 @@ $ gcloud compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --su
   --boot-disk-size=40GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
 ```
 
-Add a firewall rule for remote access:
+You may need to set the billing account using the Web UI, enable the Compute API, wait several minutes, and then try again.
+
+Add a firewall rule for remote access to your assigned netblock:
 
 ```console
-$ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK --allow tcp:22 --source-ranges $(curl -s https://icanhazip.com)
+$ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK --allow tcp:22 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
 ```
-
-### Web UI
-
-First, [create a network](https://console.cloud.google.com/networking/networks/add) to define the firewall policy later.
-
-Navigate to [VM instances](https://console.cloud.google.com/compute/instances) and select **Create Instance**.
-
-Pick a name, zone and machine type. A "standard" single-vCPU or even shared "micro" or "small" machine with *Debian 9* are fine defaults:
-
-<img width="400" src="https://cloud.githubusercontent.com/assets/12475110/15526750/bebb0ddc-2223-11e6-8be5-fc8af25bfe77.png">
-
-Select the **Networking** tab and select your pre-configured network, if any. Apply any desired network tags while here, too.
-
-Select **Create** to start the instance.
 
 ## Update domain records
 
@@ -139,18 +125,18 @@ $ ssh-keygen -t rsa -b 4096 -C 'sysadm' -f ~/.ssh/duh
 
 Where `sysadm` is the desired username on the instance.
 
-Copy the public key:
+Create a temporary file in [metadata format](https://cloud.google.com/compute/docs/instances/adding-removing-ssh-keys):
 
 ```console
-$ cat ~/.ssh/duh.pub
-ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC/[...] sysadm
+$ echo -n "sysadm:" ; cat ~/.ssh/duh.pub > /tmp/ssh-public-key
+sysadm:ssh-rsa AAAAB3Nza[...]
 ```
 
-Edit either instance or project-wide settings and paste the public key into the SSH Keys section:
+Update instance metadata:
 
-<img width="400" alt="Adding an SSH key to an instance" src="https://cloud.githubusercontent.com/assets/12475110/15527491/796d1282-222a-11e6-95a2-db73a4b5a22b.png">
-
-Select **Save**.
+```console
+$ gcloud compute instances add-metadata debian-privsec-standard --metadata-from-file ssh-keys=/tmp/ssh-public-key
+```
 
 ## Connect
 
@@ -171,10 +157,8 @@ $ ssh duh
 [...]
 The authenticity of host 'duh' (104.197.215.107)' can't be established.
 ECDSA key fingerprint is d6:9a:...:1d:c1.
-Are you sure you want to continue connecting (yes/no)?
+Are you sure you want to continue connecting (yes/no)? yes
 ```
-
-To verify this fingerprint, you will need to check the instance Serial Console output, most likely using the Web UI.
 
 See [YubiKey Guide](https://github.com/drduh/YubiKey-Guide) to secure SSH keys.
 
@@ -198,11 +182,92 @@ $ sudo apt-get -y install \
 
 ## Configure instance
 
-**Optional** Clone the configuration repository:
+Clone the configuration repository:
 
 ```console
 $ git clone https://github.com/drduh/config
 ```
+
+### SSH
+
+Take a few steps to harden remote access: declare which users are allowed to log in, change the default listening port and generate a new host key.
+
+On a local machine (not the remote host), create new RSA keys (do not use a pass-phrase - else you won't be able to connect remotely after a reboot):
+
+```console
+$ cd /tmp
+
+$ ssh-keygen -t rsa -b 4096 -f ssh_host_key -C '' -N ''
+
+$ scp /tmp/ssh_host_key* duh:~
+```
+
+On the remote host, move the keys into place and lock down file permissions:
+
+```console
+$ sudo mv ssh_host_key ssh_host_key.pub /etc/ssh/
+
+$ sudo chown root:root /etc/ssh/ssh_host_key /etc/ssh/ssh_host_key.pub
+
+$ sudo chmod 0600 /etc/ssh/ssh_host_key
+```
+
+Use my [configuration](https://github.com/drduh/config/blob/master/sshd_config):
+
+```console
+$ sudo cp ~/config/sshd_config /etc/ssh/
+```
+
+Or [customize your own](https://www.freebsd.org/cgi/man.cgi?query=sshd_config&sektion=5).
+
+Update firewall rules to allow the new SSH port:
+
+```console
+$ gcloud compute firewall-rules create ssh-tcp-2222 --network $NETWORK --allow tcp:2222 --source-ranges --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
+```
+
+Do not exit the current SSH session yet; first make sure you can still connect!
+
+Restart SSH server:
+
+```console
+$ sudo service ssh restart
+```
+
+On a client, edit `~/.ssh/config` to make any modifications, for example by adding `Port 2222`:
+
+```
+Host duh
+  User sysadm
+  HostName duh.to
+  IdentityFile ~/.ssh/duh
+  Port 2222
+```
+
+Start a new SSH session. Verify the new key fingerprint:
+
+```console
+$ ssh duh
+The authenticity of host '[104.197.215.107]:2222 ([104.197.215.107]:2222)' can't be established.
+RSA key fingerprint is 19:de:..:fe:58:3a.
+Are you sure you want to continue connecting (yes/no)? yes
+```
+
+To check the SHA256 fingerprint of the host key from the established session:
+
+```console
+$ ssh-keygen -E sha256 -lf /etc/ssh/ssh_host_key.pub
+4096 SHA256:47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU no comment (RSA)
+```
+
+To check the MD5 fingerprint of the host key:
+
+```console
+$ ssh-keygen -E md5 -lf /etc/ssh/ssh_host_key.pub
+4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
+```
+
+If the fingerprint matches, exit the original SSH session.
 
 ### tmux
 
@@ -211,7 +276,7 @@ $ git clone https://github.com/drduh/config
 Use my [configuration](https://github.com/drduh/config/blob/master/tmux.conf):
 
 ```console
-$ curl -o ~/.tmux.conf https://raw.githubusercontent.com/drduh/config/master/tmux.conf
+$ cp ~/config/tmux.conf ~/.tmux.conf
 ```
 
 Or [customize your own](https://www.hamvocke.com/blog/a-guide-to-customizing-your-tmux-conf/).
@@ -239,7 +304,7 @@ $ sudo chsh -s /usr/bin/zsh $USER
 Use my [configuration](https://github.com/drduh/config/blob/master/zshrc):
 
 ```console
-$ curl -o ~/.zshrc https://raw.githubusercontent.com/drduh/config/master/zshrc
+$ cp ~/config/zshrc .zshrc
 ```
 
 Or [customize your own](https://stackoverflow.com/questions/171563/whats-in-your-zshrc).
@@ -253,113 +318,12 @@ Open a new tmux tab and run `zsh` or start a new `ssh` session to make sure the 
 Use my [configuration](https://github.com/drduh/config/blob/master/vimrc):
 
 ```console
-$ curl -o ~/.vimrc https://raw.githubusercontent.com/drduh/config/master/vimrc
+$ cp ~/config/vimrc .vimrc
 
 $ mkdir -p ~/.vim/{backup,swap,undo}
 ```
 
 Or [customize your own vimrc](https://stackoverflow.com/questions/164847/what-is-in-your-vimrc).
-
-### SSH
-
-Take a few steps to harden remote access: declare which users are allowed to log in, change the default listening port and generate a new host key. There are many more in-depth guides online on securing SSH ([1](https://stribika.github.io/2015/01/04/secure-secure-shell.html), [2](https://feeding.cloud.geek.nz/posts/hardening-ssh-servers/), [3](https://wp.kjro.se/2013/09/06/hardening-your-ssh-server-opensshd_config/); these are just basic suggestions:
-
-Create a new host RSA keys (do not use a pass-phrase - else you won't be able to connect remotely after a reboot):
-
-```console
-$ ssh-keygen -t rsa -b 4096 -f ssh_host_key -C '' -N ''
-```
-
-Move them into place and lock down file permissions:
-
-```console
-$ sudo mv ssh_host_key ssh_host_key.pub /etc/ssh/
-
-$ sudo chown root:root /etc/ssh/ssh_host_key /etc/ssh/ssh_host_key.pub
-
-$ sudo chmod 0600 /etc/ssh/ssh_host_key
-```
-
-Use my [configuration](https://github.com/drduh/config/blob/master/sshd_config):
-
-```console
-$ curl https://raw.githubusercontent.com/drduh/config/master/sshd_config | sudo tee /etc/ssh/sshd_config
-```
-
-Or [customize your own](https://www.freebsd.org/cgi/man.cgi?query=sshd_config&sektion=5).
-
-Update Networking firewall rules to allow the new ssh listening port (for example, my SSHD configuration uses port 2222):
-
-```console
-$ gcloud compute firewall-rules create ssh-tcp-2222 --network $NETWORK --allow tcp:2222 --source-ranges $(curl -s https://icanhazip.com)
-```
-
-Do not exit the current ssh session yet; first make sure you can still connect!
-
-Restart ssh server:
-
-```console
-$ sudo service ssh restart
-```
-
-On a client, edit `~/.ssh/config` to make any modifications, for example by adding `Port 2222`:
-
-```
-Host duh
-  User sysadm
-  HostName duh.to
-  IdentityFile ~/.ssh/duh
-  Port 2222
-```
-
-Start a new ssh session to confirm it works, then exit the other session.
-
-If you had created a new host key, you'll be asked to verify the new key fingerprint:
-
-```console
-$ ssh duh
-The authenticity of host '[104.197.215.107]:2222 ([104.197.215.107]:2222)' can't be established.
-RSA key fingerprint is 19:de:..:fe:58:3a.
-Are you sure you want to continue connecting (yes/no)? yes
-```
-
-To check the sha256 fingerprint of the host key from the established session:
-
-```console
-$ ssh-keygen -E sha256 -lf /etc/ssh/ssh_host_key.pub
-4096 SHA256:47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU no comment (RSA)
-```
-
-To check the md5 fingerprint of the host key:
-
-```console
-$ ssh-keygen -E md5 -lf /etc/ssh/ssh_host_key.pub
-4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
-```
-
-### GPG
-
-[GNU Privacy Guard](https://www.gnupg.org/) is used to verify signatures for downloaded software, encrypt and decrypt files, text, email, and much more.
-
-Use my [configuration](https://github.com/drduh/config/blob/master/gpg.conf):
-
-```console
-$ mkdir ~/.gnupg ; curl -o ~/.gnupg/gpg.conf https://raw.githubusercontent.com/drduh/config/master/gpg.conf
-```
-
-To use GPG to symmetrically encrypt a directory into a single file:
-
-```console
-$ tar zcvf - ~/backup | gpg -c > ~/backup-$(date +%F-%H%M).tar.gz.gpg
-```
-
-To decrypt the file and unpack the directory:
-
-```console
-$ gpg -o ~/decrypted-backup.tar.gz -d backup-2016-01-01-0000.tar.gz.gpg && tar zxvf ~/decrypted-backup.tar.gz
-```
-
-See [YubiKey Guide](https://github.com/drduh/YubiKey-Guide) to learn more about using GPG.
 
 # Services
 
@@ -373,15 +337,17 @@ Install Dnsmasq:
 $ sudo apt-get -y install dnsmasq
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/dnsmasq.conf):
+Use my [configuration](https://github.com/drduh/config/blob/master/dnsmasq.conf) and blocklist(s):
 
 ```console
-$ curl https://raw.githubusercontent.com/drduh/config/master/dnsmasq.conf | sudo tee /etc/dnsmasq.conf
+$ sudo cp ~/config/dnsmasq.conf /etc/dnsmasq.conf
+
+$ cat ~/config/domains/* | sudo tee -a /etc/dnsmasq.conf
 ```
 
 Or [customize your own](http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html).
 
-Pick an upstream name server. To use Google resolvers, add `server=169.254.169.254` to `/etc/dnsmasq.conf` or use a `resolv-file`:
+Pick an upstream name server by uncommenting a line in /etc/dnsmasq.conf or use Google resolvers:
 
 ```console
 $ echo "nameserver 169.254.169.254" | sudo tee /etc/resolv.dnsmasq
@@ -400,7 +366,7 @@ Append any additional lists, for example:
 $ curl https://raw.githubusercontent.com/Sinfonietta/hostfiles/master/social-hosts | sudo tee --append /etc/dns-blocklist
 ```
 
-Check the file length and that no non-localhost addresses were appended:
+Check the number of file entries and ensure no routable addresses were appended:
 
 ```console
 $ wc -l /etc/dns-blocklist
@@ -422,7 +388,7 @@ $ sudo service dnsmasq restart
 Check the log to make sure it is running:
 
 ```console
-$ sudo tail -F /var/log/dnsmasq
+$ sudo tail -F /tmp/dnsmasq
 started, version 2.76 cachesize 2000
 compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
 using nameserver 8.8.8.8#53
@@ -469,63 +435,39 @@ Clone the DNSCrypt-Wrapper repository, make and install the software:
 
 ```console
 $ git clone --recursive git://github.com/Cofyc/dnscrypt-wrapper.git
+
 $ cd dnscrypt-wrapper
+
 $ make configure
+
 $ ./configure
+
 $ sudo make install
 ```
 
-Create keys and certificate (see usage instructions on [Cofyc/dnscrypt-wrapper](https://github.com/Cofyc/dnscrypt-wrapper) for details):
+See instructions [Cofyc/dnscrypt-wrapper](https://github.com/Cofyc/dnscrypt-wrapper) to configure or use [drduh/config/scripts/dnscrypt.sh](https://github.com/drduh/config/blob/master/scripts/dnscrypt.sh):
 
 ```console
-$ mkdir ~/dnscrypt-keys && cd ~/dnscrypt-keys
+$ mkdir ~/dnscrypt-keys
 
-$ dnscrypt-wrapper --gen-provider-keypair \
-  --provider-name=2.dnscrypt.cloud --ext-address=$(curl -s https://icanhazip.com/)
-Generate provider key pair... ok.
-[...]
-Keys are stored in public.key & secret.key.
+$ cd ~/dnscrypt-keys
+
+$ cp ../config/scripts/dnscrypt.sh .
+
+$ chmod +x dnscrypt.sh
+
+$ sudo ./dnscrypt.sh
 ```
-    
-Save the stamp (`sdns:\\...`) parameter and possibly others for older client versions. To use a port other than 443, use https://dnscrypt.info/stamps to update it.
+
+Copy the `sdns://` line to a client. To use a port other than 443, use https://dnscrypt.info/stamps to update the value.
+
+Update firewall rules to allow the new port:
 
 ```console
-$ dnscrypt-wrapper --gen-crypt-keypair --crypt-secretkey-file=1.key
-Generate crypt key pair... ok.
-Secret key stored in 1.key
+$ gcloud compute firewall-rules create dnscrypt-udp-443 --network $NETWORK --allow udp:443 --source-ranges $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}'
 ```
 
-By default, keys expire after 24 hours - 8 days are specified in the command below:
-
-```console
-$ dnscrypt-wrapper --gen-cert-file --crypt-secretkey-file=1.key \
-  --provider-cert-file=1.cert --provider-publickey-file=public.key \
-  --provider-secretkey-file=secret.key --cert-file-expire-days=8
-[20300] 01 May 00:00:00.000 [notice] [main.c:405] Generating pre-signed certificate.
-[20300] 01 May 00:00:00.000 [notice] [main.c:412] TXT record for signed-certificate:
-[...]
-[20300] 01 May 00:00:00.000 [notice] [main.c:566] Certificate stored in 1.cert.
-```
-
-Start the server on port 5355:
-
-```console
-$ sudo dnscrypt-wrapper --resolver-address=127.0.0.1:53 \
-  --listen-address=0.0.0.0:5355 --provider-name=2.dnscrypt.cloud \
-  --crypt-secretkey-file=1.key --provider-cert-file=1.cert -V
-```
-
-**Note** The provider-name parameter is **not** encrypted during the connection handshake.
-
-The steps to generate dnscrypt-wrapper keys and start the server can be automated with a script like [drduh/config/scripts/dnscrypt.sh](https://github.com/drduh/config/blob/master/scripts/dnscrypt.sh).
-
-Update Networking firewall rules to allow the new dnscrypt listening port (in this example, UDP port 5355).
-
-```console
-$ gcloud compute firewall-rules create dnscrypt-udp-5355 --network $NETWORK --allow udp:5355 --source-ranges $(curl -s https://icanhazip.com)
-```
-
-To connect from a client, edit `dnscrypt-proxy.toml` to include the static server stamp:
+On a client, edit `dnscrypt-proxy.toml` to include the server stamp:
 
 ```
 listen_addresses = ['127.0.0.1:40']
@@ -535,7 +477,7 @@ server_names = ['abc']
   stamp = 'sdns://AQAAAAAAAAAAEj...ZA'
 ```
 
-See [drduh/config/dnscrypt-proxy.toml](https://github.com/drduh/config/blob/master/dnscrypt-proxy.toml) and [jedisct1/dnscrypt-proxy/example-dnscrypt-proxy.toml](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-proxy/example-dnscrypt-proxy.toml) for more options.
+See [drduh/config/dnscrypt-proxy.toml](https://github.com/drduh/config/blob/master/dnscrypt-proxy.toml) and [jedisct1/dnscrypt-proxy/example-dnscrypt-proxy.toml](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-proxy/example-dnscrypt-proxy.toml) for examples.
 
 Start the client manually:
 
@@ -547,18 +489,18 @@ Check the logfile:
 
 ```console
 $ tail -f dnscrypt.log
-[NOTICE] dnscrypt-proxy 2.0.19
+[NOTICE] dnscrypt-proxy 2.0.23
 [NOTICE] Loading the set of blocking rules from [blacklist.txt]
 [NOTICE] Loading the set of forwarding rules from [forwarding-rules.txt]
 [NOTICE] Loading the set of IP blocking rules from [ip-blacklist.txt]
-[NOTICE] Now listening to 127.0.0.1:4002 [UDP]
-[NOTICE] Now listening to 127.0.0.1:4002 [TCP]
-[NOTICE] [abc] OK (crypto v1) - rtt: 52ms
-[NOTICE] Server with the lowest initial latency: abc (rtt: 52ms)
+[NOTICE] Now listening to 127.0.0.1:4200 [UDP]
+[NOTICE] Now listening to 127.0.0.1:4200 [TCP]
+[NOTICE] [abc] OK (DNSCrypt) - rtt: 10ms
+[NOTICE] Server with the lowest initial latency: abc (rtt: 10ms)
 [NOTICE] dnscrypt-proxy is ready - live servers: 1
 ```
 
-Or install and start it as a service:
+Install it as service:
 
 ```console
 $ sudo ./dnscrypt-proxy -service install
@@ -566,39 +508,7 @@ $ sudo ./dnscrypt-proxy -service install
 $ sudo ./dnscrypt-proxy -service start
 ```
 
-Outgoing DNS packets will now be encrypted from the client.
-
-For example, take a packet capture on the client while running `dig a google.to @127.0.0.1 -p 40` in another terminal:
-
-```console
-$ sudo tcpdump -As80 -tni eth0 "udp port 5355"
-listening on eth0, link-type EN10MB (Ethernet), capture size 80 bytes
-IP 10.8.4.2.55555 > 104.197.215.107:5355: UDP, length 512
-E...    ...@..a
-..%h.x}._.......G.....%.....0......bOF.".#%...ZA.T...
-
-IP 104.197.215.107.5355 > 10.8.4.2.55555: UDP, length 304
-E..L.E..)...h.x}
-..%..._.8..r6fnvWj84'TQ.&.. O....&..>
-.P|y.%.....
-^C
-```
-
-Compare with querying [Google Public DNS](https://en.wikipedia.org/wiki/Google_Public_DNS) directly with `dig a google.to @8.8.8.8` while listening on UDP port 53:
-
-```console
-$ sudo tcpdump -As80 -tni eth0 "udp port 53"
-listening on eth0, link-type EN10MB (Ethernet), capture size 80 bytes
-IP 10.8.4.2.55555 > 8.8.8.8.53: 45279+ [1au] A? google.to. (38)
-E..B....@..l
-..%.....t.5...|... .........google.to.......)........
-IP 8.8.8.8.53 > 10.8.4.2.55555: 45279 1/0/1 (54)
-E..R*...4.=.....
-..%.5.t.>...............google.to..............+.
-^C
-```
-
-Once DNSCrypt is configured on the client, edit `/etc/dnsmasq.conf` and append `server=127.0.0.1#40` to use the local port for DNSCrypt.
+Edit `/etc/dnsmasq.conf` and append `server=127.0.0.1#4200` to use dnscrypt with dnsmasq.
 
 ### Blacklist
 
@@ -608,12 +518,12 @@ On the client, clone the dnscrypt-proxy repository and use the included Python s
 
 ```console
 $ git clone https://github.com/jedisct1/dnscrypt-proxy
+
 $ cd dnscrypt-proxy/utils/generate-domains-blacklists
 
 $ python2 generate-domains-blacklist.py > blacklist
 Loading data from [file:domains-blacklist-local-additions.txt]
 Loading data from [https://easylist-downloads.adblockplus.org/antiadblockfilters.txt]
-Loading data from [https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt]
 [...]
 Loading data from [https://raw.githubusercontent.com/notracking/hosts-blocklists/master/domains.txt]
 Loading data from [file:domains-time-restricted.txt]
@@ -629,7 +539,7 @@ $ wc -l blacklist.txt
 
 [Privoxy](https://www.privoxy.org/) is a non-caching web proxy with advanced filtering capabilities for enhancing privacy, modifying web page data and HTTP headers, controlling access, and removing ads and other obnoxious Internet junk.
 
-Install Privoxy on the server:
+Install Privoxy on the remote host:
 
 ```console
 $ sudo apt-get -y install privoxy
@@ -638,9 +548,7 @@ $ sudo apt-get -y install privoxy
 Use my [configuration](https://github.com/drduh/config/blob/master/privoxy):
 
 ```console
-$ curl https://raw.githubusercontent.com/drduh/config/master/privoxy/config | sudo tee /etc/privoxy/config
-
-$ curl https://raw.githubusercontent.com/drduh/config/master/privoxy/user.action | sudo tee /etc/privoxy/user.action
+$ sudo cp ~/config/privoxy/* /etc/privoxy
 ```
 
 Or [customize your own](https://www.privoxy.org/faq/configuration.html).
@@ -651,7 +559,7 @@ Restart Privoxy:
 $ sudo service privoxy restart
 ```
 
-Test Privoxy locally on the server:
+Test Privoxy locally on the remote host:
 
 ```console
 $ ALL_PROXY=127.0.0.1:8118 curl -I http://p.p/
@@ -718,7 +626,7 @@ $ sudo arm
 Use my [configuration](https://github.com/drduh/config/blob/master/torrc):
 
 ```console
-$ curl https://raw.githubusercontent.com/drduh/config/master/torrc | sudo tee /etc/tor/torrc
+$ sudo cp ~/config/torrc /etc/tor/torrc
 ```
 
 ### DNS over Tor
@@ -741,16 +649,11 @@ To install the latest version of obfs4proxy, first install [Golang](https://gola
 $ sudo apt-get -y install golang
 ```
 
-Create a temporary download and build directory:
+Create a temporary directory, [download and build](https://golang.org/cmd/go/) [obfs4proxy](https://gitweb.torproject.org/pluggable-transports/obfs4.git):
 
 ```console
-$ export GOPATH=$(mktemp -d) ; echo $GOPATH
-/tmp/tmp.u40VUD66nP
-```
+$ export GOPATH=$(mktemp -d)
 
-[Download and build](https://golang.org/cmd/go/) [obfs4proxy](https://gitweb.torproject.org/pluggable-transports/obfs4.git):
-
-```console
 $ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 ```
 
@@ -769,26 +672,24 @@ $ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 $ go version
 go version go1.7.4 linux/amd64
 
-$ curl -O https://dl.google.com/go/go1.12.linux-amd64.tar.gz
+$ curl -O https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
 
-$ sha256sum go1.12.linux-amd64.tar.gz
-750a07fef8579ae4839458701f4df690e0b20b8bcce33b437e4df89c451b6f13
-
-$ sudo tar -C /usr/local -xzf go1.12.linux-amd64.tar.gz
+$ sudo tar -C /usr/local -xzf go1.12.5.linux-amd64.tar.gz
 
 $ /usr/local/go/bin/go version
-go version go1.12 linux/amd64
+go version go1.12.5 linux/amd64
 
 $ /usr/local/go/bin/go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
-$ echo $?
-0
 ```
 
 Confirm it's built and install it:
 
 ```console
+$ echo $?
+0
+
 $ $GOPATH/bin/obfs4proxy -version
-obfs4proxy-0.0.10-dev
+obfs4proxy-0.0.11-dev
 
 $ sudo service tor stop
 
@@ -831,10 +732,10 @@ $ curl --socks5 127.0.0.1:9050 https://icanhazip.com/
 [tor exit node ip address]
 ```
 
-Update Networking firewall rules to allow the new proxy listening port (in this case, TCP port 10022):
+Update firewall rules to allow the new proxy listening port (in this case, TCP port 10022):
 
 ```console
-$ gcloud compute firewall-rules create obfs4-tcp-10022 --network $NETWORK --allow tcp:10022 --source-ranges $(curl -s https://icanhazip.com)
+$ gcloud compute firewall-rules create obfs4-tcp-10022 --network $NETWORK --allow tcp:10022 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
 ```
 
 If Tor did not start, try starting it manually (`sudo` may be required to bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html)):
@@ -917,7 +818,7 @@ It is recommended running the script to generate keys client-side, in a trusted 
 ```console
 $ mkdir ~/pki && cd ~/pki
 
-$ curl -o ~/pki/pki.sh https://raw.githubusercontent.com/drduh/config/master/scripts/pki.sh
+$ cp ~/config/scripts/pki.sh pki/
 ```
 
 Read through and edit the script and variables, especially `CN_` ones, to your suit your needs:
@@ -975,7 +876,7 @@ $ sudo apt-get -y install openvpn
 Use my [configuration](https://github.com/drduh/config/blob/master/server.ovpn):
 
 ```console
-$ curl https://raw.githubusercontent.com/drduh/config/master/server.ovpn | sudo tee /etc/openvpn/server.ovpn
+$ sudo cp ~/config/server.ovpn /etc/openvpn
 ```
 
 Or [customize your own](https://openvpn.net/index.php/open-source/documentation/howto.html#server).
@@ -1086,20 +987,16 @@ Initialization Sequence Completed
 
 If OpenVPN still fails due to unknown ciphers, you may need to install a newer OpenVPN server version - see [OpenvpnSoftwareRepos](https://community.openvpn.net/openvpn/wiki/OpenvpnSoftwareRepos).
 
-Update the remote instance's firewall rules to allow the new VPN listening port (in this case, UDP port 443)
+Update the remote hosts firewall rules to allow the new VPN listening port (in this case, UDP port 443).
 
-For each connecting device, edit a [client configuration](https://openvpn.net/index.php/open-source/documentation/howto.html#client):
+For each connecting device, edit a [client configuration](https://openvpn.net/index.php/open-source/documentation/howto.html#client) using [my configuration](https://github.com/drduh/config/blob/master/client.ovpn):
 
 ```console
 $ mkdir ~/vpn
 
-$ vim ~/vpn/client.ovpn
-```
+$ cp ~/vpn
 
-To use my [configuration](https://github.com/drduh/config/blob/master/client.ovpn):
-
-```console
-$ curl -o ~/vpn/client.ovpn https://raw.githubusercontent.com/drduh/config/master/client.ovpn
+$ cp ~/config/client.ovpn .
 ```
 
 Add the CA certificate, client certificate and client key material to the configuration:
@@ -1136,7 +1033,7 @@ VERIFY OK: depth=0, CN=duh.to
 [...]
 ```
 
-Verify your local IP address is the same as the server:
+Verify the local IP address is the same as the remote host:
 
 ```console
 $ curl -4 https://icanhazip.com/
@@ -1184,10 +1081,10 @@ VERIFY OK: depth=0, CN=duh.to
 Initialization Sequence Completed
 ```
 
-Verify traffic is routed through the remote server:
+Verify traffic is routed through the remote host:
 
 ```console
-$ curl https://icanhazip.com/
+$ curl -4 https://icanhazip.com/
 104.197.215.107
 ```
 
@@ -1206,9 +1103,9 @@ $ sudo apt-get -y install lighttpd lighttpd-mod-magnet
 Use my [configuration](https://github.com/drduh/config/blob/master/lighttpd/lighttpd.conf):
 
 ```console
-$ curl https://raw.githubusercontent.com/drduh/config/master/lighttpd/lighttpd.conf | sudo tee /etc/lighttpd/lighttpd.conf
+$ sudo cp ~/config/lighttpd/lighttpd.conf /etc/lighttpd
 
-$ curl https://raw.githubusercontent.com/drduh/config/master/lighttpd/magnet.luau | sudo tee /etc/lighttpd/magnet.luau
+$ sudo cp ~/config/lighttpd/magnet.luau /etc/lighttpd
 ```
 
 Or [customize your own](https://redmine.lighttpd.net/projects/1/wiki/TutorialConfiguration).
@@ -1245,7 +1142,7 @@ If it failed to start, try running it directly to check for errors:
 $ sudo lighttpd -f /etc/lighttpd/lighttpd.conf -D
 ```
 
-Update Networking firewall rules to allow the new HTTP/HTTPS listening port(s) (in this example, TCP port 80 and 443).
+Update firewall rules to allow the new HTTP/HTTPS listening port(s) (in this example, TCP port 80 and 443).
 
 Create some content:
 
@@ -1275,7 +1172,7 @@ $ sudo apt-get -y install prosody
 Use my [configuration](https://github.com/drduh/config/blob/master/prosody.cfg.lua) and edit it to suit your needs:
 
 ```console
-$ sudo curl -o /etc/prosody/prosody.cfg.lua https://raw.githubusercontent.com/drduh/config/master/prosody.cfg.lua
+$ sudo cp ~/config/prosody.cfg.lua /etc/prosody
 ```
 
 Or [customize your own](https://prosody.im/doc/example_config). See also [Advanced ssl config](https://prosody.im/doc/advanced_ssl_config).
@@ -1332,7 +1229,7 @@ lua5.1     1831    prosody    8u  IPv6 317990      0t0  TCP *:5222 (LISTEN)
 lua5.1     1831    prosody    9u  IPv4 317991      0t0  TCP *:5222 (LISTEN)
 ```
 
-Update Networking firewall rules to allow the new prosody listening ports (in this example, TCP ports 5222 and 5269):
+Update firewall rules to allow the new prosody listening ports (in this example, TCP ports 5222 and 5269):
 
 ```console
 $ gcloud compute firewall-rules create xmpp-tcp-5222-5269 --network $NETWORK --allow tcp:5222,tcp:5269 --source-ranges $(curl -s https://icanhazip.com)
