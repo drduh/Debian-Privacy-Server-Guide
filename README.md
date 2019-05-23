@@ -34,17 +34,18 @@ Download and configure the gcloud [command line tool](https://cloud.google.com/s
 Log in and enter the verification code, then create a project with any name:
 
 ```console
+$ PROJECT=$(tr -dc '[:lower:]' < /dev/urandom | fold -w20 | head -n1)
+
 $ gcloud auth login
 
-$ gcloud projects create mlipmnyadedgzxruqj
+$ gcloud projects create $PROJECT
 
-$ gcloud config set project mlipmnyadedgzxruqj
+$ gcloud config set project $PROJECT
 ```
 
-Set the `PROJECT`, `INSTANCE`, `NETWORK`, [`TYPE`](https://cloud.google.com/compute/docs/machine-types), and [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/) variables, as well as a recent `IMAGE`:
+Set the `INSTANCE`, `NETWORK`, [`TYPE`](https://cloud.google.com/compute/docs/machine-types), and [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/) variables, as well as a recent `IMAGE`:
 
 ```console
-$ PROJECT=mlipmnyadedgzxruqj
 $ INSTANCE=debian-privsec-standard
 $ NETWORK=debian-privsec-net
 $ TYPE=n1-standard-1
@@ -76,8 +77,6 @@ $ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK --allow tcp
 ```
 
 ## Update domain records
-
-This step is optional.
 
 Once you have an *External IP* assigned, you may want to configure a DNS record. To do so, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
 
@@ -117,7 +116,7 @@ $ ssh-add -L
 ssh-rsa AAAAB4NzaC1yc2EAAAADAQABAAACAz[...]zreOKM+HwpkHzcy9DQcVG2Nw== cardno:000605553211
 ```
 
-Or create a new [4096-bit](https://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into the instance via SSH (pass-phrase is optional):
+Or create a new [4096-bit](https://danielpocock.com/rsa-key-sizes-2048-or-4096-bits) [RSA](https://utcc.utoronto.ca/~cks/space/blog/sysadmin/SSHKeyTypes) key-pair to use for logging into the instance via SSH:
 
 ```console
 $ ssh-keygen -t rsa -b 4096 -C 'sysadm' -f ~/.ssh/duh
@@ -391,8 +390,9 @@ Check the log to make sure it is running:
 $ sudo tail -F /tmp/dnsmasq
 started, version 2.76 cachesize 2000
 compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
-using nameserver 8.8.8.8#53
-using nameserver 8.8.4.4#53
+compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
+reading /etc/resolv.dnsmasq
+using nameserver 169.254.169.254#53
 read /etc/hosts - 6 addresses
 read /etc/dns-blocklist - 63894 addresses
 ```
@@ -401,12 +401,6 @@ If it fails to start, try running it manually:
 
 ```console
 $ sudo dnsmasq -C /etc/dnsmasq.conf -d
-dnsmasq: started, version 2.76 cachesize 2000
-dnsmasq: compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
-dnsmasq: using nameserver 8.8.8.8#53
-dnsmasq: using nameserver 8.8.4.4#53
-dnsmasq: read /etc/hosts - 6 addresses
-dnsmasq: read /etc/dns-blocklist - 63894 addresses
 ```
 
 Query locally for an *A record* to confirm dnsmasq is working:
@@ -464,7 +458,7 @@ Copy the `sdns://` line to a client. To use a port other than 443, use https://d
 Update firewall rules to allow the new port:
 
 ```console
-$ gcloud compute firewall-rules create dnscrypt-udp-443 --network $NETWORK --allow udp:443 --source-ranges $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}'
+$ gcloud compute firewall-rules create dnscrypt-udp-443 --network $NETWORK --allow udp:443 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
 ```
 
 On a client, edit `dnscrypt-proxy.toml` to include the server stamp:
@@ -742,22 +736,6 @@ If Tor did not start, try starting it manually (`sudo` may be required to bind t
 
 ```console
 $ tor -f /etc/tor/torrc
-[notice] Opening Socks listener on 127.0.0.1:9050
-[notice] Opening OR listener on 0.0.0.0:9993
-[notice] Opening Extended OR listener on 127.0.0.1:0
-Extended OR listener listening on port 50161.
-[...]
-Bootstrapped 0%: Starting
-Bootstrapped 5%: Connecting to directory server
-Bootstrapped 45%: Asking for relay descriptors
-Bootstrapped 78%: Loading relay descriptors
-Registered server transport 'obfs4' at '[::]:10022'
-Guessed our IP address as 104.197.215.107 (source: 62.210.222.166).
-We now have enough directory information to build circuits.
-Bootstrapped 80%: Connecting to the Tor network
-Bootstrapped 90%: Establishing a Tor circuit
-Tor has successfully opened a circuit. Looks like client functionality is working.
-Bootstrapped 100%: Done
 ```
 
 Copy the bridgeline, filling in the IP address and port:
@@ -1049,17 +1027,11 @@ $ curl -4 https://icanhazip.com/
 
 To connect from Android, install [OpenVPN Connect](https://play.google.com/store/apps/details?id=net.openvpn.openvpn).
 
-Copy `client.ovpn` and `ta.key` to a folder on the Android device, using a USB cable or by sharing the files through Google Drive, for example.
+Copy `client.ovpn` and `ta.key` to a directory on the Android device using adb or Android File Transfer.
 
 Select **Import** > **Import Profile from SD card** and select `client.ovpn`, perhaps in the Download folder.
 
 If the profile was was successfully imported, select **Connect**.
-
-**Mac** Install OpenVPN from [Homebrew](https://github.com/drduh/OS-X-Security-and-Privacy-Guide#homebrew):
-
-```console
-$ brew install openvpn
-```
 
 Start OpenVPN:
 
@@ -1087,8 +1059,6 @@ Verify traffic is routed through the remote host:
 $ curl -4 https://icanhazip.com/
 104.197.215.107
 ```
-
-See [macOS-Security-and-Privacy-Guide#vpn](https://github.com/drduh/macOS-Security-and-Privacy-Guide#vpn).
 
 ## Web Server
 
