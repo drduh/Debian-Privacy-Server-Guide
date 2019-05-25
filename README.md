@@ -789,7 +789,7 @@ To generate a specific .onion hostname, [some](https://security.stackexchange.co
 
 Create your own [public-key infrastructure](https://security.stackexchange.com/questions/87564/how-does-ssl-tls-pki-work), so that you may use your own keys and certificates for VPN, HTTPS, etc.
 
-To create a certificate authority, intermediate authority, server and client certificates, download the following [script](https://github.com/drduh/config/blob/master/scripts/pki.sh).
+To create a certificate authority, server and client certificates, download the following [script](https://github.com/drduh/config/blob/master/scripts/pki.sh).
 
 It is recommended running the script to generate keys client-side, in a trusted computing environment, preferably [air-gapped](https://en.wikipedia.org/wiki/Air_gap_(networking)).
 
@@ -828,15 +828,15 @@ Generating RSA private key, 4096 bit long modulus
 Sign the certificate? [y/n]:y
 ```
 
-If there were no errors, the script created private and public keys for a certificate authority, an intermediate certificate authority, a server and a client - along with certificate request (srl) and configuration files (cnf).
+If there were no errors, the script created private and public keys for a certificate authority, a server and a client - along with certificate request (srl) and configuration files (cnf).
 
 To check a certificate file (`.pem` extension) with OpenSSL:
 
 ```console
 $ openssl x509 -in ca.pem -noout -subject -issuer -enddate
-subject=CN = Example Authority
-issuer=CN = Example Authority
-notAfter=Dec 1 00:00:00 2018 GMT
+subject= /CN=4CC90cC34b
+issuer= /CN=4CC90cC34b
+notAfter=Dec 1 00:00:00 2020 GMT
 ```
 
 You could also use [OpenVPN/easy-rsa](https://github.com/OpenVPN/easy-rsa) or [Let's Encrypt](https://letsencrypt.org).
@@ -874,7 +874,7 @@ $ openssl dhparam -dsaparam -out dh.pem 4096
 Copy these files and certificates from the previous section to the server (note, the only *private* key sent is for the server itself):
 
 ```console
-$ scp ta.key dh.pem ca.pem intermediate.pem server.pem server.key duh:~
+$ scp ta.key dh.pem ca.pem server.pem server.key duh:~
 ```
 
 On the server-side, move the files into place:
@@ -882,9 +882,9 @@ On the server-side, move the files into place:
 ```console
 $ sudo mkdir /etc/pki
 
-$ cat ca.pem intermediate.pem > chain.pem
+$ sudo mv ca.pem server.pem server.key dh.pem ta.key /etc/pki
 
-$ sudo cp chain.pem server.pem server.key dh.pem ta.key /etc/pki
+$ sudo chmod 0400 /etc/pki/server.key /etc/pki/ta.key /etc/pki/dh.pem
 ```
 
 Enable [IP forwarding](https://linuxconfig.org/how-to-turn-on-off-ip-forwarding-in-linux) and make the change permanent:
@@ -941,28 +941,6 @@ IFCONFIG POOL: base=10.8.0.2 size=252, ipv6=0
 Initialization Sequence Completed
 ```
 
-If it fails, try to start OpenVPN server manually:
-
-```console
-$ sudo openvpn --config /etc/openvpn/server.ovpn --verb 3 --suppress-timestamps
-OpenVPN 2.4.0 x86_64-pc-linux-gnu [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [PKCS11] [MH/PKTINFO] [AEAD] built on Jul 18 2017
-library versions: OpenSSL 1.0.2l  25 May 2017, LZO 2.08
-Diffie-Hellman initialized with 4096 bit key
-Control Channel Authentication: using '/etc/pki/ta.key' as a OpenVPN static key file
-Outgoing Control Channel Authentication: Using 256 bit message hash 'SHA256' for HMAC authentication
-Incoming Control Channel Authentication: Using 256 bit message hash 'SHA256' for HMAC authentication
-ROUTE_GATEWAY 10.240.0.1
-TUN/TAP device tun0 opened
-TUN/TAP TX queue length set to 100
-do_ifconfig, tt->did_ifconfig_ipv6_setup=1
-/sbin/ip link set dev tun0 up mtu 1500
-/sbin/ip addr add dev tun0 10.8.0.1/24 broadcast 10.8.0.255
-/sbin/ip -6 addr add 2001:db8:123::1/64 dev tun0
-/sbin/ip route add 10.8.0.0/24 via 10.8.0.2
-[...]
-Initialization Sequence Completed
-```
-
 If OpenVPN still fails due to unknown ciphers, you may need to install a newer OpenVPN server version - see [OpenvpnSoftwareRepos](https://community.openvpn.net/openvpn/wiki/OpenvpnSoftwareRepos).
 
 Update the remote hosts firewall rules to allow the new VPN listening port (in this case, UDP port 443).
@@ -972,7 +950,7 @@ For each connecting device, edit a [client configuration](https://openvpn.net/in
 ```console
 $ mkdir ~/vpn
 
-$ cp ~/vpn
+$ cd ~/vpn
 
 $ cp ~/config/client.ovpn .
 ```
@@ -983,13 +961,7 @@ Add the CA certificate, client certificate and client key material to the config
 $ (echo "<ca>" ; cat ~/pki/ca.pem ; echo "</ca>\n<cert>" ; cat ~/pki/client.pem; echo "</cert>\n<key>" ; cat ~/pki/client.key ; echo "</key>") >> client.ovpn
 ```
 
-From a client, copy `ta.key` from the server:
-
-```console
-$ scp duh:~/pki/ta.key ~/vpn
-```
-
-To connect, install and start OpenVPN:
+Install and start OpenVPN:
 
 ```console
 $ sudo apt-get -y install openvpn
@@ -1000,7 +972,6 @@ $ sudo openvpn --config client.ovpn
 [...]
 TLS: Initial packet from [AF_INET]104.197.215.107:443, sid=6901c819 3e11276e
 VERIFY OK: depth=2, CN=Duh Authority
-VERIFY OK: depth=1, CN=Duh Intermediate Authority
 Validating certificate key usage
 ++ Certificate has key usage  00a0, expects 00a0
 VERIFY KU OK
@@ -1041,7 +1012,6 @@ OpenVPN 2.4.4 x86_64-apple-darwin16.7.0 [SSL (OpenSSL)] [LZO] [LZ4] [PKCS11] [MH
 [...]
 TLS: Initial packet from [AF_INET]104.197.215.107:443, sid=db4ecf82 4e4e4c5b
 VERIFY OK: depth=2, CN=Duh Authority
-VERIFY OK: depth=1, CN=Duh Intermediate Authority
 Validating certificate key usage
 ++ Certificate has key usage  00a0, expects 00a0
 VERIFY KU OK
@@ -1161,10 +1131,10 @@ $ sudo cp ~/pki/server.pem /etc/pki/xmpp-cert.pem
 $ sudo cp ~/pki/server.key /etc/pki/xmpp-key.pem
 ```
 
-If using a custom CA or intermediate certificate, append it to the server certificate, for example:
+Append the CA to the server certificate:
 
 ```console
-$ cd ~/pki && cat server.pem intermediate.pem ca.pem | sudo tee /etc/pki/xmpp-cert.pem
+$ cd ~/pki && cat server.pem ca.pem | sudo tee /etc/pki/xmpp-cert.pem
 ```
 
 Or generate a new self-signed certificate:
