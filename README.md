@@ -166,13 +166,13 @@ See [YubiKey Guide](https://github.com/drduh/YubiKey-Guide) to secure SSH keys.
 Install pending updates:
 
 ```console
-$ sudo apt-get update && sudo apt-get upgrade -y
+$ sudo apt update && sudo apt upgrade -y
 ```
 
 Install any necessary software, for example:
 
 ```console
-$ sudo apt-get -y install \
+$ sudo apt -y install \
   zsh vim tmux dnsutils whois \
   git gcc autoconf make \
   lsof tcpdump htop tree \
@@ -333,7 +333,7 @@ Or [customize your own vimrc](https://stackoverflow.com/questions/164847/what-is
 Install Dnsmasq:
 
 ```console
-$ sudo apt-get -y install dnsmasq
+$ sudo apt -y install dnsmasq
 ```
 
 Use my [configuration](https://github.com/drduh/config/blob/master/dnsmasq.conf) and blocklist(s):
@@ -359,7 +359,7 @@ nameserver 169.254.169.254
 $ curl https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts | sudo tee /etc/dns-blocklist
 ```
 
-Append any additional lists, for example:
+Append any additional lists, such as `social-hosts`:
 
 ```console
 $ curl https://raw.githubusercontent.com/Sinfonietta/hostfiles/master/social-hosts | sudo tee --append /etc/dns-blocklist
@@ -422,7 +422,7 @@ $ dig +short a google.to @127.0.0.1
 To configure a private or public DNSCrypt server, first install [libsodium](https://github.com/jedisct1/libsodium) and [libevent](https://libevent.org/):
 
 ```console
-$ sudo apt-get -y install libsodium-dev libevent-dev
+$ sudo apt -y install libsodium-dev libevent-dev
 ```
 
 Clone the DNSCrypt-Wrapper repository, make and install the software:
@@ -515,7 +515,7 @@ $ git clone https://github.com/jedisct1/dnscrypt-proxy
 
 $ cd dnscrypt-proxy/utils/generate-domains-blacklists
 
-$ python2 generate-domains-blacklist.py > blacklist
+$ python3 generate-domains-blacklist.py > blacklist
 Loading data from [file:domains-blacklist-local-additions.txt]
 Loading data from [https://easylist-downloads.adblockplus.org/antiadblockfilters.txt]
 [...]
@@ -536,7 +536,7 @@ $ wc -l blacklist.txt
 Install Privoxy on the remote host:
 
 ```console
-$ sudo apt-get -y install privoxy
+$ sudo apt -y install privoxy
 ```
 
 Use my [configuration](https://github.com/drduh/config/blob/master/privoxy):
@@ -606,13 +606,13 @@ $ curl --proxy socks5h://127.0.0.1:7000 https://icanhazip.com/
 [Install Tor](https://www.torproject.org/docs/tor-relay-debian.html.en) on the server - by default Tor does **not** relay nor exit traffic; it only provides a local port for outbound connections.
 
 ```console
-$ sudo apt-get -y install tor
+$ sudo apt -y install tor
 ```
 
 **Optional** Install and configure [anonymizing relay monitor (arm)](https://www.atagar.com/arm/), a terminal-based status monitor for Tor.
 
 ```console
-$ sudo apt-get -y install tor-arm
+$ sudo apt -y install tor-arm
 
 $ sudo arm
 ```
@@ -640,7 +640,7 @@ Additionally, obfuscate Tor traffic by using [obfsproxy](https://www.torproject.
 To install the latest version of obfs4proxy, first install [Golang](https://golang.org/):
 
 ```console
-$ sudo apt-get -y install golang
+$ sudo apt -y install golang
 ```
 
 Create a temporary directory, [download and build](https://golang.org/cmd/go/) [obfs4proxy](https://gitweb.torproject.org/pluggable-transports/obfs4.git):
@@ -690,7 +690,7 @@ $ sudo service tor stop
 $ sudo cp $GOPATH/bin/obfs4proxy /usr/local/bin
 ```
 
-Secure it:
+Set the program file owner to `root`:
 
 ```console
 $ sudo chown root:root /usr/local/bin/obfs4proxy
@@ -712,24 +712,26 @@ Restart Tor:
 $ sudo service tor restart
 ```
 
-Ensure `obfs4proxy` is accepting connections:
+Verify `obfs4proxy` is accepting connections:
 
 ```console
 $ sudo lsof -Pni | grep obfs
 obfs4prox 6507 debian-tor    3u  IPv6  62584      0t0  TCP *:10022 (LISTEN)
 ```
 
-Ensure connections from the server over Tor are possible:
+Verify connections on the server itself over Tor are working:
 
 ```console
 $ curl --socks5 127.0.0.1:9050 https://icanhazip.com/
-[tor exit node ip address]
+[a Tor exit node IP address]
 ```
 
-Update firewall rules to allow the new proxy listening port (in this case, TCP port 10022):
+Update firewall rules to allow the new proxy listening port (in this case, TCP port 10022) for your current IP address range:
 
 ```console
-$ gcloud compute firewall-rules create obfs4-tcp-10022 --network $NETWORK --allow tcp:10022 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
+$ gcloud compute firewall-rules create obfs4-tcp-10022 \
+    --network $NETWORK --allow tcp:10022 \
+    --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
 ```
 
 If Tor did not start, try starting it manually (`sudo` may be required to bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html)):
@@ -761,7 +763,7 @@ Using [Tor Browser](https://www.torproject.org/projects/torbrowser.html.en), sel
 
 ### Onion Service
 
-**Optional** To host an [onion service](https://www.torproject.org/docs/onion-services), append something like this to `/etc/tor/torrc` on the server (for example, to use with a Web server):
+**Optional** To host an [Onion Service](https://www.torproject.org/docs/onion-services), append something like this to `/etc/tor/torrc` on the server (for example, to use with a Web server):
 
 ```
 HiddenServiceDir /var/lib/tor/hidden_service/
@@ -787,7 +789,7 @@ To generate a specific .onion hostname, [some](https://security.stackexchange.co
 
 ## Certificates
 
-Create your own [public-key infrastructure](https://security.stackexchange.com/questions/87564/how-does-ssl-tls-pki-work), so that you may use your own keys and certificates for VPN, HTTPS, etc.
+Set up a [public-key infrastructure](https://security.stackexchange.com/questions/87564/how-does-ssl-tls-pki-work) to use your own keys and certificates for VPN, an HTTPS-enabled Web server, etc.
 
 To create a certificate authority, server and client certificates, download the following [script](https://github.com/drduh/config/blob/master/scripts/pki.sh).
 
@@ -848,18 +850,18 @@ You could also use [OpenVPN/easy-rsa](https://github.com/OpenVPN/easy-rsa) or [L
 Starting with the client, install OpenVPN:
 
 ```console
-$ sudo apt-get -y install openvpn
+$ sudo apt -y install openvpn
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/server.ovpn):
+Use my [configuration](https://github.com/drduh/config/blob/master/openvpn/server.ovpn):
 
 ```console
-$ sudo cp ~/config/server.ovpn /etc/openvpn
+$ sudo cp ~/config/openvpn/server.ovpn /etc/openvpn
 ```
 
 Or [customize your own](https://openvpn.net/index.php/open-source/documentation/howto.html#server).
 
-Preferably on the client-side (where there is likely more entropy), generate a [static key](https://openvpn.net/index.php/open-source/documentation/miscellaneous/78-static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
+Preferably client-side (where there is more entropy available), generate a [static key](https://openvpn.net/index.php/open-source/documentation/miscellaneous/78-static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
 
 ```console
 $ openvpn --genkey --secret ta.key
@@ -871,18 +873,18 @@ Also client-side, create [Diffie-Hellman key exchange parameters](https://securi
 $ openssl dhparam -dsaparam -out dh.pem 4096
 ```
 
-Copy these files and certificates from the previous section to the server (note, the only *private* key sent is for the server itself):
+Copy the following files from the previous section to the server. Note that the only *private* key sent remotely is for the server itself (`server.key`):
 
 ```console
 $ scp ta.key dh.pem ca.pem server.pem server.key duh:~
 ```
 
-On the server-side, move the files into place:
+On the server, move the files into place:
 
 ```console
 $ sudo mkdir /etc/pki
 
-$ sudo mv ca.pem server.pem server.key dh.pem ta.key /etc/pki
+$ sudo mv ca.pem server.pem server.key dh.pem ta.key /etc/pki/
 
 $ sudo chmod 0400 /etc/pki/server.key /etc/pki/ta.key /etc/pki/dh.pem
 ```
@@ -910,7 +912,7 @@ $ sudo iptables -t nat -A PREROUTING --source 10.8.0.0/16 -p tcp -m tcp --dport 
 Make the firewall rules permanent:
 
 ```console
-$ sudo apt-get -y install iptables-persistent
+$ sudo apt -y install iptables-persistent
 
 $ sudo iptables-save | sudo tee /etc/iptables/rules.v4
 ```
@@ -936,7 +938,6 @@ do_ifconfig, tt->ipv6=0, tt->did_ifconfig_ipv6_setup=0
 /sbin/ip addr add dev tun0 10.8.0.1/24 broadcast 10.8.0.255
 UDPv4 link local (bound): [undef]
 UDPv4 link remote: [undef]
-v=256
 IFCONFIG POOL: base=10.8.0.2 size=252, ipv6=0
 Initialization Sequence Completed
 ```
@@ -945,14 +946,14 @@ If OpenVPN still fails due to unknown ciphers, you may need to install a newer O
 
 Update the remote hosts firewall rules to allow the new VPN listening port (in this case, UDP port 443).
 
-For each connecting device, edit a [client configuration](https://openvpn.net/index.php/open-source/documentation/howto.html#client) using [my configuration](https://github.com/drduh/config/blob/master/client.ovpn):
+For each connecting device, edit a [client configuration](https://openvpn.net/index.php/open-source/documentation/howto.html#client) using [my configuration](https://github.com/drduh/config/blob/master/openvpn/client.ovpn):
 
 ```console
 $ mkdir ~/vpn
 
 $ cd ~/vpn
 
-$ cp ~/config/client.ovpn .
+$ cp ~/config/openvpn/client.ovpn .
 ```
 
 Add the CA certificate, client certificate and client key material to the configuration:
@@ -964,7 +965,7 @@ $ (echo "<ca>" ; cat ~/pki/ca.pem ; echo "</ca>\n<cert>" ; cat ~/pki/client.pem;
 Install and start OpenVPN:
 
 ```console
-$ sudo apt-get -y install openvpn
+$ sudo apt -y install openvpn
 
 $ cd ~/vpn
 
@@ -1037,7 +1038,7 @@ $ curl -4 https://icanhazip.com/
 Install [Lighttpd](https://www.lighttpd.net/) with [ModMagnet](https://redmine.lighttpd.net/projects/1/wiki/Docs_ModMagnet):
 
 ```console
-$ sudo apt-get -y install lighttpd lighttpd-mod-magnet
+$ sudo apt -y install lighttpd lighttpd-mod-magnet
 ```
 
 Use my [configuration](https://github.com/drduh/config/blob/master/lighttpd/lighttpd.conf):
@@ -1106,7 +1107,7 @@ Run your own [XMPP](https://en.wikipedia.org/wiki/XMPP) chat server with [Prosod
 Install Prosody:
 
 ```console
-$ sudo apt-get -y install prosody
+$ sudo apt -y install prosody
 ```
 
 Use my [configuration](https://github.com/drduh/config/blob/master/prosody.cfg.lua) and edit it to suit your needs:
@@ -1206,7 +1207,7 @@ $ dig +short srv _xmpp-client._tcp.duh.to
 To connect from a client, use [Profanity](http://profanity.im/)
 
 ```console
-$ sudo apt-get -y install profanity
+$ sudo apt -y install profanity
 
 $ profanity
 ```
