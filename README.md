@@ -47,10 +47,14 @@ Set the `INSTANCE`, `NETWORK`, [`TYPE`](https://cloud.google.com/compute/docs/ma
 
 ```console
 $ INSTANCE=debian-privsec-standard
+
 $ NETWORK=debian-privsec-net
+
 $ TYPE=n1-standard-1
+
 $ ZONE=us-east1-a
-$ IMAGE=$(gcloud compute images list | grep debian | awk '{print $1}')
+
+$ IMAGE=$(gcloud compute images list | grep debian-10 | awk '{print $1}')
 ```
 
 Create a new network:
@@ -73,7 +77,8 @@ You may need to set the billing account using the Web UI, enable the Compute API
 Add a firewall rule for remote access to your assigned netblock:
 
 ```console
-$ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK --allow tcp:22 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
+$ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK \
+  --allow tcp:22 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | head -n1 | awk '{print $2}')
 ```
 
 ## Update domain records
@@ -127,14 +132,14 @@ Where `sysadm` is the desired username on the instance.
 Create a temporary file in [metadata format](https://cloud.google.com/compute/docs/instances/adding-removing-ssh-keys):
 
 ```console
-$ echo -n "sysadm:" ; cat ~/.ssh/duh.pub > /tmp/ssh-public-key
+$ (echo -n "sysadm:" ; cat ~/.ssh/duh.pub) > /tmp/ssh-public-key
 sysadm:ssh-rsa AAAAB3Nza[...]
 ```
 
 Update instance metadata:
 
 ```console
-$ gcloud compute instances add-metadata debian-privsec-standard --metadata-from-file ssh-keys=/tmp/ssh-public-key
+$ gcloud compute instances add-metadata $INSTANCE --zone=$ZONE --metadata-from-file ssh-keys=/tmp/ssh-public-key
 ```
 
 ## Connect
@@ -222,7 +227,8 @@ Or [customize your own](https://www.freebsd.org/cgi/man.cgi?query=sshd_config&se
 Update firewall rules to allow the new SSH port:
 
 ```console
-$ gcloud compute firewall-rules create ssh-tcp-2222 --network $NETWORK --allow tcp:2222 --source-ranges --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
+$ gcloud compute firewall-rules create ssh-tcp-2222 --network $NETWORK \
+  --allow tcp:2222 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | head -n1 | awk '{print $2}')
 ```
 
 Do not exit the current SSH session yet; first make sure you can still connect!
@@ -243,7 +249,7 @@ Host duh
   Port 2222
 ```
 
-Start a new SSH session. Verify the new key fingerprint:
+Start a new SSH session. The new key fingerprint will require verification:
 
 ```console
 $ ssh duh
@@ -266,7 +272,7 @@ $ ssh-keygen -E md5 -lf /etc/ssh/ssh_host_key.pub
 4096 19:de:..:fe:58:3a /etc/ssh/ssh_host_key.pub (RSA)
 ```
 
-If the fingerprint matches, exit the original SSH session.
+If the fingerprint matches the local file version, exit the original SSH session.
 
 ### tmux
 
@@ -387,7 +393,7 @@ $ sudo service dnsmasq restart
 Check the log to make sure it is running:
 
 ```console
-$ sudo tail -F /tmp/dnsmasq
+$ sudo tail -F /tmp/dns
 started, version 2.76 cachesize 2000
 compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
 compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
@@ -446,7 +452,7 @@ $ mkdir ~/dnscrypt-keys
 
 $ cd ~/dnscrypt-keys
 
-$ cp ../config/scripts/dnscrypt.sh .
+$ cp ~/config/scripts/dnscrypt.sh .
 
 $ chmod +x dnscrypt.sh
 
@@ -458,7 +464,8 @@ Copy the `sdns://` line to a client. To use a port other than 443, use https://d
 Update firewall rules to allow the new port:
 
 ```console
-$ gcloud compute firewall-rules create dnscrypt-udp-443 --network $NETWORK --allow udp:443 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
+$ gcloud compute firewall-rules create dnscrypt-udp-443 --network $NETWORK \
+  --allow udp:443 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | head -n1 | awk '{print $2}')
 ```
 
 On a client, edit `dnscrypt-proxy.toml` to include the server stamp:
@@ -515,7 +522,7 @@ $ git clone https://github.com/jedisct1/dnscrypt-proxy
 
 $ cd dnscrypt-proxy/utils/generate-domains-blacklists
 
-$ python3 generate-domains-blacklist.py > blacklist
+$ python generate-domains-blacklist.py > blacklist.$(date +%F)
 Loading data from [file:domains-blacklist-local-additions.txt]
 Loading data from [https://easylist-downloads.adblockplus.org/antiadblockfilters.txt]
 [...]
@@ -523,7 +530,7 @@ Loading data from [https://raw.githubusercontent.com/notracking/hosts-blocklists
 Loading data from [file:domains-time-restricted.txt]
 Loading data from [file:domains-whitelist.txt]
 
-$ mv blacklist ~/build/linux-x86_64/blacklist.txt
+$ cp blacklist.$(date +%F) ~/build/linux-x86_64/blacklist.txt
 
 $ wc -l blacklist.txt
 117838 blacklist.txt
@@ -683,17 +690,13 @@ $ echo $?
 0
 
 $ $GOPATH/bin/obfs4proxy -version
-obfs4proxy-0.0.11-dev
+obfs4proxy-0.0.12-dev
 
 $ sudo service tor stop
 
 $ sudo cp $GOPATH/bin/obfs4proxy /usr/local/bin
-```
 
-Set the program file owner to `root`:
-
-```console
-$ sudo chown root:root /usr/local/bin/obfs4proxy
+$ sudo chown debian-tor:debian-tor /usr/local/bin/obfs4proxy
 ```
 
 Edit `/etc/tor/torrc` to include:
@@ -719,6 +722,14 @@ $ sudo lsof -Pni | grep obfs
 obfs4prox 6507 debian-tor    3u  IPv6  62584      0t0  TCP *:10022 (LISTEN)
 ```
 
+If obfs4proxy fails to start, check the Tor log. You may need to modify the apparmor profile to include the binary:
+
+```console
+$ tail -n2 /etc/apparmor.d/abstractions/tor
+  /usr/local/bin/obfsproxy PUx,
+  /usr/local/bin/obfs4proxy Pix,
+```
+
 Verify connections on the server itself over Tor are working:
 
 ```console
@@ -729,9 +740,8 @@ $ curl --socks5 127.0.0.1:9050 https://icanhazip.com/
 Update firewall rules to allow the new proxy listening port (in this case, TCP port 10022) for your current IP address range:
 
 ```console
-$ gcloud compute firewall-rules create obfs4-tcp-10022 \
-    --network $NETWORK --allow tcp:10022 \
-    --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | awk '{print $2}')
+$ gcloud compute firewall-rules create obfs4-tcp-10022 --network $NETWORK --allow tcp:10022 \
+  --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | head -n1 | awk '{print $2}')
 ```
 
 If Tor did not start, try starting it manually (`sudo` may be required to bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html)):
@@ -740,11 +750,14 @@ If Tor did not start, try starting it manually (`sudo` may be required to bind t
 $ tor -f /etc/tor/torrc
 ```
 
-Copy the bridgeline, filling in the IP address and port:
+Copy the bridgeline and complete the external IP address and port number:
 
 ```console
 $ sudo tail -n1 /var/lib/tor/pt_state/obfs4_bridgeline.txt
 Bridge obfs4 <IP ADDRESS>:<PORT> <FINGERPRINT> cert=4ar[...]8FA iat-mode=0
+
+$ echo $(curl -s https://icanhazip.com ; echo : ; sudo lsof -Pni | grep obf | sed -e "s/.*://" -e "s/ .*//") | tr -d " "
+104.197.215.107:10022
 
 $ sudo tail -n1 /var/lib/tor/pt_state/obfs4_bridgeline.txt | awk '{print $1,$2,"104.197.215.107:10022",$(NF-1),$(NF)}'
 Bridge obfs4 104.197.215.107:10022 cert=4ar[...]8FA iat-mode=0
@@ -1173,7 +1186,8 @@ lua5.1     1831    prosody    9u  IPv4 317991      0t0  TCP *:5222 (LISTEN)
 Update firewall rules to allow the new prosody listening ports (in this example, TCP ports 5222 and 5269):
 
 ```console
-$ gcloud compute firewall-rules create xmpp-tcp-5222-5269 --network $NETWORK --allow tcp:5222,tcp:5269 --source-ranges $(curl -s https://icanhazip.com)
+$ gcloud compute firewall-rules create xmpp-tcp-5222-5269 --network $NETWORK \
+  --allow tcp:5222,tcp:5269 --source-ranges $(curl -s https://icanhazip.com)
 ```
 
 Create a new user:
