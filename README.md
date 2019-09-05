@@ -46,7 +46,7 @@ $ gcloud config set project $PROJECT
 Set the `INSTANCE`, `NETWORK`, [`TYPE`](https://cloud.google.com/compute/docs/machine-types), and [`ZONE`](https://cloud.google.com/compute/docs/regions-zones/) variables, as well as a recent `IMAGE`:
 
 ```console
-$ INSTANCE=debian-privsec-standard
+$ INSTANCE=$(tr -dc '[:lower:]' < /dev/urandom | fold -w10 | head -n1)
 
 $ NETWORK=debian-privsec-net
 
@@ -67,7 +67,7 @@ Create an instance:
 
 ```console
 $ gcloud compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --subnet=$NETWORK \
-  --machine-type=$TYPE --network-tier=PREMIUM --can-ip-forward --no-restart-on-failure --maintenance-policy=MIGRATE \
+  --machine-type=$TYPE --network-tier=PREMIUM --can-ip-forward --maintenance-policy=MIGRATE \
   --no-service-account --no-scopes --image=$IMAGE --image-project=debian-cloud \
   --boot-disk-size=40GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
 ```
@@ -83,7 +83,7 @@ $ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK \
 
 ## Update domain records
 
-Once you have an *External IP* assigned, you may want to configure a DNS record. To do so, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
+Once an *External IP* is assigned, you may want to configure a DNS record. To do so, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
 
 Create an [A record](https://support.dnsimple.com/articles/a-record/) for the domain by selecting **Add Record Set**:
 
@@ -294,7 +294,7 @@ Run `tmux` and open a new tab with `` `-c `` or specified keyboard shortcut.
 
 When you reconnect to the instance, type `tmux attach -t <session name>` (or `tmux a` for short) to select a session to "attach" to (default name is "0"; use `` `-$ `` to rename).
 
-**Note** If you're using the st terminal and receive the error `open terminal failed: missing or unsuitable terminal: st-256color`, copy the file `st.info` from st's build directory to the instance and run `tic st.info`.
+**Note** If you're using the st terminal and receive the error `open terminal failed: missing or unsuitable terminal: st-256color`, copy the file `st.info` from the st build directory to the instance and run `tic st.info`.
 
 ### Zsh
 
@@ -352,7 +352,7 @@ $ cat ~/config/domains/* | sudo tee -a /etc/dnsmasq.conf
 
 Or [customize your own](http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html).
 
-Pick an upstream name server by uncommenting a line in /etc/dnsmasq.conf or use Google resolvers:
+Pick an upstream name server by uncommenting a line in `/etc/dnsmasq.conf` or use Google resolvers:
 
 ```console
 $ echo "nameserver 169.254.169.254" | sudo tee /etc/resolv.dnsmasq
@@ -574,7 +574,9 @@ Expires: Sat, 17 Jun 2000 12:00:00 GMT
 Pragma: no-cache
 ```
 
-Clients can use the remote proxy with [Secure Shell tunneling](https://en.wikipedia.org/wiki/Tunneling_protocol), also known as a ["poor man's VPN"](https://www.linuxjournal.com/content/ssh-tunneling-poor-techies-vpn) (**Note** `AllowTcpForwarding yes` must be enabled in `/etc/ssh/sshd_config` on the server to use these features, followed by `sudo service ssh restart`).
+Clients can use the remote proxy with [Secure Shell tunneling](https://en.wikipedia.org/wiki/Tunneling_protocol), also known as a ["poor man's VPN"](https://www.linuxjournal.com/content/ssh-tunneling-poor-techies-vpn)
+
+**Note** `AllowTcpForwarding yes` must be enabled in `/etc/ssh/sshd_config` on the server to use these features, followed by `sudo service ssh restart`.
 
 ```console
 $ ssh -NCL 5555:127.0.0.1:8118 duh
@@ -616,12 +618,18 @@ $ curl --proxy socks5h://127.0.0.1:7000 https://icanhazip.com/
 $ sudo apt -y install tor
 ```
 
-**Optional** Install and configure [anonymizing relay monitor (arm)](https://www.atagar.com/arm/), a terminal-based status monitor for Tor.
+**Optional** Install and configure [nyx](https://nyx.torproject.org/), a terminal-based monitor for Tor.
 
 ```console
-$ sudo apt -y install tor-arm
+$ sudo service tor stop
 
-$ sudo arm
+$ sudo apt -y install nyx
+
+$ tor --hash-password qrkxQO628
+
+$ sudo service tor start
+
+$ nyx
 ```
 
 Use my [configuration](https://github.com/drduh/config/blob/master/torrc):
@@ -632,7 +640,7 @@ $ sudo cp ~/config/torrc /etc/tor/torrc
 
 ### DNS over Tor
 
-Tor can listen locally to resolve DNS A, AAAA and PTR records anonymously. To use, add a local address to `/etc/tor/torrc`:
+Tor can resolve DNS A, AAAA and PTR records anonymously. Add a local address to `/etc/tor/torrc`:
     
 ```
 DNSPort 127.26.255.1:53
@@ -1272,5 +1280,5 @@ If an error occurs while attempting to connect, check `/var/log/prosody/prosody.
 
 Reboot the instance and make sure everything still works. If not, you'll need to automate certain programs to start up on their own (for example, Privoxy will fail to start if OpenVPN does not first create a tunnel interface to bind to).
 
-With this guide, a secure server with several privacy and security enchancing services can be setup in less than an hour. The server can be used to circumvent firewalls, provide strong encryption and overall improve online experience, all for a low monthly cost (average ~$35 per month for a "standard" instance.) To save money, consider using [Preemptible VM instances](https://cloud.google.com/compute/docs/instances/preemptible) which can be started right back up with a script.
+With this guide, a secure server with several privacy- and security-enhancing services can be setup in less than an hour. The server can be used to circumvent firewalls, provide strong encryption and overall improve online experience, all for a low monthly cost (average ~$35 per month for a "standard" instance.) To save money, consider using [Preemptible VM instances](https://cloud.google.com/compute/docs/instances/preemptible) which can be started right back up with a script.
 
