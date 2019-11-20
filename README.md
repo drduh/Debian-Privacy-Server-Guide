@@ -74,11 +74,24 @@ $ gcloud compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --su
 
 You may need to set the billing account using the Web UI, enable the Compute API, wait several minutes, and then try again.
 
-Add a firewall rule for remote access to your assigned netblock:
+Add a firewall rule for remote access to your public IP address:
+
+```console
+$ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK \
+  --allow tcp:22 --source-ranges $(curl -sq https://icanhazip.com)
+```
+
+Or for your entire assigned netblock:
 
 ```console
 $ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK \
   --allow tcp:22 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | head -n1 | awk '{print $2}')
+```
+
+To update a rule:
+
+```console
+$ gloud compute firewall-rules update --source-ranges=$(curl -sq https://icanhazip.com) ssh-tcp-22
 ```
 
 ## Update domain records
@@ -177,11 +190,7 @@ $ sudo apt update && sudo apt upgrade -y
 Install any necessary software, for example:
 
 ```console
-$ sudo apt -y install \
-  zsh vim tmux dnsutils whois \
-  git gcc autoconf make \
-  lsof tcpdump htop tree \
-  apt-transport-https
+$ sudo apt -y install zsh vim tmux dnsutils whois git gcc autoconf make lsof tcpdump htop tree apt-transport-https
 ```
 
 ## Configure instance
@@ -216,7 +225,7 @@ $ sudo chown root:root /etc/ssh/ssh_host_key /etc/ssh/ssh_host_key.pub
 $ sudo chmod 0600 /etc/ssh/ssh_host_key
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/sshd_config):
+Use [my configuration](https://github.com/drduh/config/blob/master/sshd_config):
 
 ```console
 $ sudo cp ~/config/sshd_config /etc/ssh/
@@ -228,7 +237,7 @@ Update firewall rules to allow the new SSH port:
 
 ```console
 $ gcloud compute firewall-rules create ssh-tcp-2222 --network $NETWORK \
-  --allow tcp:2222 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | head -n1 | awk '{print $2}')
+  --allow tcp:2222 --source-ranges $(curl -sq https://icanhazip.com)
 ```
 
 Do not exit the current SSH session yet; first make sure you can still connect!
@@ -278,7 +287,7 @@ If the fingerprint matches the local file version, exit the original SSH session
 
 [tmux](https://tmux.github.io/) is a terminal multiplexer. This program allows reconnecting to a working terminal session on the instance.
 
-Use my [configuration](https://github.com/drduh/config/blob/master/tmux.conf):
+Use [my configuration](https://github.com/drduh/config/blob/master/tmux.conf):
 
 ```console
 $ cp ~/config/tmux.conf ~/.tmux.conf
@@ -290,11 +299,11 @@ Run `tmux` and open a new tab with `` `-c `` or specified keyboard shortcut.
 
 `` `-1 ``, `` `-2 ``, `` `-3 `` switch to windows 1, 2, 3, etc.
 
-`` `-d `` will disconnect from Tmux so you can save the session and log out.
+`` `-d `` will disconnect from tmux, saving the existing session.
 
 When you reconnect to the instance, type `tmux attach -t <session name>` (or `tmux a` for short) to select a session to "attach" to (default name is "0"; use `` `-$ `` to rename).
 
-**Note** If you're using the st terminal and receive the error `open terminal failed: missing or unsuitable terminal: st-256color`, copy the file `st.info` from the st build directory to the instance and run `tic st.info`.
+**Note** If you're using the st terminal and receive the error `open terminal failed: missing or unsuitable terminal: st-256color`, copy the file [`st.info`](https://git.suckless.org/st/file/st.info.html) from the st directory to the instance and run `tic st.info`.
 
 ### Zsh
 
@@ -306,7 +315,7 @@ To set the login shell for the current user to Zsh:
 $ sudo chsh -s /usr/bin/zsh $USER
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/zshrc):
+Use [my configuration](https://github.com/drduh/config/blob/master/zshrc):
 
 ```console
 $ cp ~/config/zshrc .zshrc
@@ -320,7 +329,7 @@ Open a new tmux tab and run `zsh` or start a new `ssh` session to make sure the 
 
 [Vim](http://www.vim.org/) is an excellent open source text editor. Run `vimtutor` if you have not used Vim before.
 
-Use my [configuration](https://github.com/drduh/config/blob/master/vimrc):
+Use [my configuration](https://github.com/drduh/config/blob/master/vimrc):
 
 ```console
 $ cp ~/config/vimrc .vimrc
@@ -342,7 +351,7 @@ Install Dnsmasq:
 $ sudo apt -y install dnsmasq
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/dnsmasq.conf) and blocklist(s):
+Use [my configuration](https://github.com/drduh/config/blob/master/dnsmasq.conf) and blocklist(s):
 
 ```console
 $ sudo cp ~/config/dnsmasq.conf /etc/dnsmasq.conf
@@ -465,7 +474,7 @@ Update firewall rules to allow the new port:
 
 ```console
 $ gcloud compute firewall-rules create dnscrypt-udp-443 --network $NETWORK \
-  --allow udp:443 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | head -n1 | awk '{print $2}')
+  --allow udp:443 --source-ranges $(curl -sq https://icanhazip.com)
 ```
 
 On a client, edit `dnscrypt-proxy.toml` to include the server stamp:
@@ -490,7 +499,9 @@ Check the logfile:
 
 ```console
 $ tail -f dnscrypt.log
-[NOTICE] dnscrypt-proxy 2.0.23
+[NOTICE] dnscrypt-proxy 2.0.33
+[NOTICE] Network connectivity detected
+[NOTICE] Firefox workaround initialized
 [NOTICE] Loading the set of blocking rules from [blacklist.txt]
 [NOTICE] Loading the set of forwarding rules from [forwarding-rules.txt]
 [NOTICE] Loading the set of IP blocking rules from [ip-blacklist.txt]
@@ -501,7 +512,7 @@ $ tail -f dnscrypt.log
 [NOTICE] dnscrypt-proxy is ready - live servers: 1
 ```
 
-Install it as service:
+Install the service:
 
 ```console
 $ sudo ./dnscrypt-proxy -service install
@@ -546,7 +557,7 @@ Install Privoxy on the remote host:
 $ sudo apt -y install privoxy
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/privoxy):
+Use [my configuration](https://github.com/drduh/config/blob/master/privoxy):
 
 ```console
 $ sudo cp ~/config/privoxy/* /etc/privoxy
@@ -595,7 +606,7 @@ Requests will appear in Privoxy logs if logging is enabled:
 $ sudo tail -F /var/log/privoxy/logfile
 ```
 
-Or to use ssh as a [SOCKS proxy](https://sanctum.geek.nz/arabesque/ssh-socks-and-curl/):
+Or to use SSH as a [SOCKS proxy](https://sanctum.geek.nz/arabesque/ssh-socks-and-curl/):
 
 ```console
 $ ssh -NCD 7000 duh
@@ -623,16 +634,21 @@ $ sudo apt -y install tor
 ```console
 $ sudo service tor stop
 
-$ sudo apt -y install nyx
+$ sudo easy_install pip
 
-$ tor --hash-password qrkxQO628
+$ sudo pip install nyx
+
+$ tr -dc '[:alnum:]' < /dev/urandom | fold -w20 | head -n1
+dSE9jQLhBnJ5x20V5zd7
+
+$ tor --hash-password dSE9jQLhBnJ5x20V5zd7
 
 $ sudo service tor start
 
 $ nyx
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/torrc):
+Use [my configuration](https://github.com/drduh/config/blob/master/torrc):
 
 ```console
 $ sudo cp ~/config/torrc /etc/tor/torrc
@@ -681,12 +697,12 @@ $ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 $ go version
 go version go1.7.4 linux/amd64
 
-$ curl -O https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
+$ curl -O https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz
 
-$ sudo tar -C /usr/local -xzf go1.12.5.linux-amd64.tar.gz
+$ sudo tar -C /usr/local -xzf go*gz
 
 $ /usr/local/go/bin/go version
-go version go1.12.5 linux/amd64
+go version go1.13.4 linux/amd64
 
 $ /usr/local/go/bin/go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 ```
@@ -738,6 +754,12 @@ $ tail -n2 /etc/apparmor.d/abstractions/tor
   /usr/local/bin/obfs4proxy Pix,
 ```
 
+Restart apparmor:
+
+```console
+$ sudo service apparmor restart
+```
+
 Verify connections on the server itself over Tor are working:
 
 ```console
@@ -749,7 +771,7 @@ Update firewall rules to allow the new proxy listening port (in this case, TCP p
 
 ```console
 $ gcloud compute firewall-rules create obfs4-tcp-10022 --network $NETWORK --allow tcp:10022 \
-  --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | head -n1 | awk '{print $2}')
+  --source-ranges $(curl -sq https://icanhazip.com)
 ```
 
 If Tor did not start, try starting it manually (`sudo` may be required to bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html)):
@@ -784,7 +806,7 @@ Using [Tor Browser](https://www.torproject.org/projects/torbrowser.html.en), sel
 
 ### Onion Service
 
-**Optional** To host an [Onion Service](https://www.torproject.org/docs/onion-services), append something like this to `/etc/tor/torrc` on the server (for example, to use with a Web server):
+To host an [Onion Service](https://www.torproject.org/docs/onion-services), append the following lines to `/etc/tor/torrc` on the server - for example, to use with a Web server on localhost:
 
 ```
 HiddenServiceDir /var/lib/tor/hidden_service/
@@ -814,7 +836,7 @@ Set up a [public-key infrastructure](https://security.stackexchange.com/question
 
 To create a certificate authority, server and client certificates, download the following [script](https://github.com/drduh/config/blob/master/scripts/pki.sh).
 
-It is recommended running the script to generate keys client-side, in a trusted computing environment, preferably [air-gapped](https://en.wikipedia.org/wiki/Air_gap_(networking)).
+It is recommended to generate keys in a local, trusted computing environment, preferably [air-gapped](https://en.wikipedia.org/wiki/Air_gap_(networking)), or using a live OS image.
 
 ```console
 $ mkdir ~/pki && cd ~/pki
@@ -874,7 +896,7 @@ Starting with the client, install OpenVPN:
 $ sudo apt -y install openvpn
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/openvpn/server.ovpn):
+Use [my configuration](https://github.com/drduh/config/blob/master/openvpn/server.ovpn):
 
 ```console
 $ sudo cp ~/config/openvpn/server.ovpn /etc/openvpn
@@ -1062,7 +1084,7 @@ Install [Lighttpd](https://www.lighttpd.net/) with [ModMagnet](https://redmine.l
 $ sudo apt -y install lighttpd lighttpd-mod-magnet
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/lighttpd/lighttpd.conf):
+Use [my configuration](https://github.com/drduh/config/blob/master/lighttpd/lighttpd.conf):
 
 ```console
 $ sudo cp ~/config/lighttpd/lighttpd.conf /etc/lighttpd
@@ -1131,7 +1153,7 @@ Install Prosody:
 $ sudo apt -y install prosody
 ```
 
-Use my [configuration](https://github.com/drduh/config/blob/master/prosody.cfg.lua) and edit it to suit your needs:
+Use [my configuration](https://github.com/drduh/config/blob/master/prosody.cfg.lua) and edit it to suit your needs:
 
 ```console
 $ sudo cp ~/config/prosody.cfg.lua /etc/prosody
