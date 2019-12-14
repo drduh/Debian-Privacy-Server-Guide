@@ -50,7 +50,7 @@ $ INSTANCE=$(tr -dc '[:lower:]' < /dev/urandom | fold -w10 | head -n1)
 
 $ NETWORK=debian-privsec-net
 
-$ TYPE=n1-standard-1
+$ TYPE=f1-micro
 
 $ ZONE=us-east1-a
 
@@ -91,7 +91,7 @@ $ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK \
 To update a rule:
 
 ```console
-$ gloud compute firewall-rules update --source-ranges=$(curl -sq https://icanhazip.com) ssh-tcp-22
+$ gcloud compute firewall-rules update --source-ranges=$(curl -sq https://icanhazip.com) ssh-tcp-22
 ```
 
 ## Update domain records
@@ -267,7 +267,7 @@ RSA key fingerprint is 19:de:..:fe:58:3a.
 Are you sure you want to continue connecting (yes/no)? yes
 ```
 
-To check the SHA256 fingerprint of the host key from the established session:
+To check the SHA256 fingerprint of the host key from the previously established session:
 
 ```console
 $ ssh-keygen -E sha256 -lf /etc/ssh/ssh_host_key.pub
@@ -361,12 +361,7 @@ $ cat ~/config/domains/* | sudo tee -a /etc/dnsmasq.conf
 
 Or [customize your own](http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html).
 
-Pick an upstream name server by uncommenting a line in `/etc/dnsmasq.conf` or use Google resolvers:
-
-```console
-$ echo "nameserver 169.254.169.254" | sudo tee /etc/resolv.dnsmasq
-nameserver 169.254.169.254
-```
+Pick an upstream name server by uncommenting a line in `/etc/dnsmasq.conf`.
 
 **Optional** Install a DNS [blocklist](https://en.wikipedia.org/wiki/Hosts_(file)) ([alternative method](https://debian-administration.org/article/535/Blocking_ad_servers_with_dnsmasq)), for example:
 
@@ -386,11 +381,14 @@ Check the number of file entries and ensure no routable addresses were appended:
 $ wc -l /etc/dns-blocklist
 66290 /etc/dns-blocklist
 
-$ grep -ve "^127.0.0.1\|^0.0.0.0\|^#" /etc/dns-blocklist | sort | uniq
-::1 ip6-localhost
-::1 ip6-loopback
-::1 localhost
+$ grep -ve "^127.0.0.1\|^0.0.0.0\|^#\|^::1" /etc/dns-blocklist | sort | uniq
 255.255.255.255 broadcasthost
+fe80::1%lo0 localhost
+ff00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+ff02::3 ip6-allhosts
 ```
 
 Restart the service:
@@ -629,15 +627,31 @@ $ curl --proxy socks5h://127.0.0.1:7000 https://icanhazip.com/
 $ sudo apt -y install tor
 ```
 
+Use [my configuration](https://github.com/drduh/config/blob/master/torrc):
+
+```console
+$ sudo cp ~/config/torrc /etc/tor/torrc
+```
+
 **Optional** Install and configure [nyx](https://nyx.torproject.org/), a terminal-based monitor for Tor.
 
 ```console
 $ sudo service tor stop
 
+$ sudo apt install -y nyx
+```
+
+Or:
+
+```console
 $ sudo easy_install pip
 
 $ sudo pip install nyx
+```
 
+Configure a credential:
+
+```console
 $ tr -dc '[:alnum:]' < /dev/urandom | fold -w20 | head -n1
 dSE9jQLhBnJ5x20V5zd7
 
@@ -646,12 +660,6 @@ $ tor --hash-password dSE9jQLhBnJ5x20V5zd7
 $ sudo service tor start
 
 $ nyx
-```
-
-Use [my configuration](https://github.com/drduh/config/blob/master/torrc):
-
-```console
-$ sudo cp ~/config/torrc /etc/tor/torrc
 ```
 
 ### DNS over Tor
@@ -668,7 +676,13 @@ Then append `server=127.26.255.1` to `/etc/dnsmasq.conf` and restart both servic
 
 Additionally, obfuscate Tor traffic by using [obfsproxy](https://www.torproject.org/projects/obfsproxy.html.en) or some other [Tor pluggable transport](https://www.torproject.org/docs/pluggable-transports.html.en).
 
-To install the latest version of obfs4proxy, first install [Golang](https://golang.org/):
+Install:
+
+```console
+$ sudo apt install obfs4proxy
+```
+
+Or to install the latest version of obfs4proxy manually, first install [Golang](https://golang.org/):
 
 ```console
 $ sudo apt -y install golang
@@ -682,7 +696,17 @@ $ export GOPATH=$(mktemp -d)
 $ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 ```
 
-**Note** If this fails for any reason, you likely need a more recent version of [Go](https://debian-administration.org/article/727/Installing_the_Go_programming_language_on_Debian_GNU/Linux):
+Confirm it's built and install it:
+
+```console
+$ echo $?
+0
+
+$ $GOPATH/bin/obfs4proxy -version
+obfs4proxy-0.0.12-dev
+```
+
+**Note** If the build fails, you likely need a more recent version of [Go](https://debian-administration.org/article/727/Installing_the_Go_programming_language_on_Debian_GNU/Linux):
 
 ```console
 $ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
@@ -707,15 +731,9 @@ go version go1.13.4 linux/amd64
 $ /usr/local/go/bin/go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
 ```
 
-Confirm it's built and install it:
+Copy the built binary:
 
 ```console
-$ echo $?
-0
-
-$ $GOPATH/bin/obfs4proxy -version
-obfs4proxy-0.0.12-dev
-
 $ sudo service tor stop
 
 $ sudo cp $GOPATH/bin/obfs4proxy /usr/local/bin
