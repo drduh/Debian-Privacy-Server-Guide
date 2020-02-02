@@ -29,14 +29,16 @@ If it doesn't look right, log in to Tonic or your registrar and update DNS infor
 
 # Server setup
 
-Download and configure the gcloud [command line tool](https://cloud.google.com/sdk/gcloud/).
+Download and configure the gcloud [command line tool](https://cloud.google.com/sdk/gcloud/). Log in using the verification code:
 
-Log in and enter the verification code, then create a project with any name:
+```console
+$ gcloud auth login
+```
+
+Enable project billing and the Compute API, then create a project with any name:
 
 ```console
 $ PROJECT=$(tr -dc '[:lower:]' < /dev/urandom | fold -w20 | head -n1)
-
-$ gcloud auth login
 
 $ gcloud projects create $PROJECT
 
@@ -50,7 +52,7 @@ $ INSTANCE=$(tr -dc '[:lower:]' < /dev/urandom | fold -w10 | head -n1)
 
 $ NETWORK=debian-privsec-net
 
-$ TYPE=f1-micro
+$ TYPE=g1-small
 
 $ ZONE=us-east1-a
 
@@ -63,40 +65,39 @@ Create a new network:
 $ gcloud compute networks create $NETWORK
 ```
 
-Create an instance:
-
-```console
-$ gcloud compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE --subnet=$NETWORK \
-  --machine-type=$TYPE --network-tier=PREMIUM --can-ip-forward --maintenance-policy=MIGRATE \
-  --no-service-account --no-scopes --image=$IMAGE --image-project=debian-cloud \
-  --boot-disk-size=40GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE
-```
-
-You may need to set the billing account using the Web UI, enable the Compute API, wait several minutes, and then try again.
-
 Add a firewall rule for remote access to your public IP address:
 
 ```console
-$ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK \
-  --allow tcp:22 --source-ranges $(curl -sq https://icanhazip.com)
-```
-
-Or for your entire assigned netblock:
-
-```console
-$ gcloud compute firewall-rules create ssh-tcp-22 --network $NETWORK \
-  --allow tcp:22 --source-ranges $(whois $(curl -s https://icanhazip.com) | grep CIDR | head -n1 | awk '{print $2}')
+$ gcloud compute --project=$PROJECT firewall-rules create public-ssh \
+  --direction=INGRESS --priority=1000 --action=ALLOW \
+  --network=$NETWORK --rules=tcp:22,tcp:2222 \
+  --source-ranges=$(curl -sq https://icanhazip.com/) \
+  --target-tags=allow-ssh
 ```
 
 To update a rule:
 
 ```console
-$ gcloud compute firewall-rules update --source-ranges=$(curl -sq https://icanhazip.com) ssh-tcp-22
+$ gcloud compute firewall-rules update public-ssh \
+   --source-ranges=$(curl -sq https://icanhazip.com/)
+```
+
+Create an instance:
+
+```console
+$ gcloud compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE \
+  --machine-type=$TYPE --subnet=$NETWORK --network-tier=PREMIUM \
+  --metadata=block-project-ssh-keys=true --can-ip-forward --maintenance-policy=MIGRATE \
+  --no-service-account --no-scopes --tags=allow-ssh \
+  --image=$IMAGE --image-project=debian-cloud \
+  --boot-disk-size=10GB --boot-disk-type=pd-standard --boot-disk-device-name=$INSTANCE \
+  --shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring \
+  --reservation-affinity=none
 ```
 
 ## Update domain records
 
-Once an *External IP* is assigned, you may want to configure a DNS record. To do so, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
+Once an External IP address is assigned, you may want to configure a DNS record. To do so, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
 
 Create an [A record](https://support.dnsimple.com/articles/a-record/) for the domain by selecting **Add Record Set**:
 
@@ -233,13 +234,6 @@ $ sudo cp ~/config/sshd_config /etc/ssh/
 
 Or [customize your own](https://www.freebsd.org/cgi/man.cgi?query=sshd_config&sektion=5).
 
-Update firewall rules to allow the new SSH port:
-
-```console
-$ gcloud compute firewall-rules create ssh-tcp-2222 --network $NETWORK \
-  --allow tcp:2222 --source-ranges $(curl -sq https://icanhazip.com)
-```
-
 Do not exit the current SSH session yet; first make sure you can still connect!
 
 Restart SSH server:
@@ -270,7 +264,7 @@ Are you sure you want to continue connecting (yes/no)? yes
 To check the SHA256 fingerprint of the host key from the previously established session:
 
 ```console
-$ ssh-keygen -E sha256 -lf /etc/ssh/ssh_host_key.pub
+$ sudo ssh-keygen -E sha256 -lf /etc/ssh/ssh_host_key.pub
 4096 SHA256:47DEQpj8HBSa+/TImW+6JCeuQfRkm5NMpJWZG3hSuFU no comment (RSA)
 ```
 
@@ -381,7 +375,7 @@ Check the number of file entries and ensure no routable addresses were appended:
 $ wc -l /etc/dns-blocklist
 66290 /etc/dns-blocklist
 
-$ grep -ve "^127.0.0.1\|^0.0.0.0\|^#\|^::1" /etc/dns-blocklist | sort | uniq
+$ grep -ve "^.*#\|^127.0.0.1\|^0.0.0.0\|^#\|^::1" /etc/dns-blocklist | sort | uniq
 255.255.255.255 broadcasthost
 fe80::1%lo0 localhost
 ff00::0 ip6-localnet
@@ -472,7 +466,7 @@ Update firewall rules to allow the new port:
 
 ```console
 $ gcloud compute firewall-rules create dnscrypt-udp-443 --network $NETWORK \
-  --allow udp:443 --source-ranges $(curl -sq https://icanhazip.com)
+  --allow udp:443 --source-ranges $(curl -sq https://icanhazip.com/)
 ```
 
 On a client, edit `dnscrypt-proxy.toml` to include the server stamp:
@@ -518,7 +512,7 @@ $ sudo ./dnscrypt-proxy -service install
 $ sudo ./dnscrypt-proxy -service start
 ```
 
-Edit `/etc/dnsmasq.conf` and append `server=127.0.0.1#4200` to use dnscrypt with dnsmasq.
+Edit `/etc/dnsmasq.conf` on the client and append `server=127.0.0.1#4200` to use DNSCrypt with dnsmasq.
 
 ### Blacklist
 
@@ -674,7 +668,7 @@ Then append `server=127.26.255.1` to `/etc/dnsmasq.conf` and restart both servic
 
 ### Obfuscation
 
-Additionally, obfuscate Tor traffic by using [obfsproxy](https://www.torproject.org/projects/obfsproxy.html.en) or some other [Tor pluggable transport](https://www.torproject.org/docs/pluggable-transports.html.en).
+Obfuscate incoming Tor client traffic by using [obfsproxy](https://www.torproject.org/projects/obfsproxy.html.en) or another [Tor pluggable transport](https://www.torproject.org/docs/pluggable-transports.html.en).
 
 Install:
 
@@ -764,7 +758,7 @@ $ sudo lsof -Pni | grep obfs
 obfs4prox 6507 debian-tor    3u  IPv6  62584      0t0  TCP *:10022 (LISTEN)
 ```
 
-If obfs4proxy fails to start, check the Tor log. You may need to modify the apparmor profile to include the binary:
+If obfs4proxy fails to start, check the Tor log. You may need to modify the AppArmor profile to include the binary:
 
 ```console
 $ tail -n2 /etc/apparmor.d/abstractions/tor
@@ -789,7 +783,7 @@ Update firewall rules to allow the new proxy listening port (in this case, TCP p
 
 ```console
 $ gcloud compute firewall-rules create obfs4-tcp-10022 --network $NETWORK --allow tcp:10022 \
-  --source-ranges $(curl -sq https://icanhazip.com)
+  --source-ranges $(curl -sq https://icanhazip.com/)
 ```
 
 If Tor did not start, try starting it manually (`sudo` may be required to bind to [privileged ports](https://www.w3.org/Daemon/User/Installation/PrivilegedPorts.html)):
@@ -804,7 +798,7 @@ Copy the bridgeline and complete the external IP address and port number:
 $ sudo tail -n1 /var/lib/tor/pt_state/obfs4_bridgeline.txt
 Bridge obfs4 <IP ADDRESS>:<PORT> <FINGERPRINT> cert=4ar[...]8FA iat-mode=0
 
-$ echo $(curl -s https://icanhazip.com ; echo : ; sudo lsof -Pni | grep obf | sed -e "s/.*://" -e "s/ .*//") | tr -d " "
+$ echo $(curl -s https://icanhazip.com/ ; echo : ; sudo lsof -Pni | grep obf | sed -e "s/.*://" -e "s/ .*//") | tr -d " "
 104.197.215.107:10022
 
 $ sudo tail -n1 /var/lib/tor/pt_state/obfs4_bridgeline.txt | awk '{print $1,$2,"104.197.215.107:10022",$(NF-1),$(NF)}'
@@ -958,7 +952,7 @@ $ sudo sysctl -w net.ipv4.ip_forward=1
 $ echo "net.ipv4.ip_forward = 1" | sudo tee --append /etc/sysctl.conf
 ```
 
-Create a [NAT](https://serverfault.com/questions/267286/openvpn-server-will-not-redirect-traffic/427756#427756) for VPN clients:
+Enable [NAT](https://serverfault.com/questions/267286/openvpn-server-will-not-redirect-traffic/427756#427756) for VPN clients:
 
 ```console
 $ sudo iptables -t nat -A POSTROUTING -o eth0 -s 10.8.0.0/16 -j MASQUERADE
@@ -1235,7 +1229,7 @@ Update firewall rules to allow the new prosody listening ports (in this example,
 
 ```console
 $ gcloud compute firewall-rules create xmpp-tcp-5222-5269 --network $NETWORK \
-  --allow tcp:5222,tcp:5269 --source-ranges $(curl -s https://icanhazip.com)
+  --allow tcp:5222,tcp:5269 --source-ranges $(curl -s https://icanhazip.com/)
 ```
 
 Create a new user:
@@ -1320,5 +1314,5 @@ If an error occurs while attempting to connect, check `/var/log/prosody/prosody.
 
 Reboot the instance and make sure everything still works. If not, you'll need to automate certain programs to start up on their own (for example, Privoxy will fail to start if OpenVPN does not first create a tunnel interface to bind to).
 
-With this guide, a secure server with several privacy- and security-enhancing services can be setup in less than an hour. The server can be used to circumvent firewalls, provide strong encryption and overall improve online experience, all for a low monthly cost (average ~$35 per month for a "standard" instance.) To save money, consider using [Preemptible VM instances](https://cloud.google.com/compute/docs/instances/preemptible) which can be started right back up with a script.
+With this guide, a secure server with several privacy- and security-enhancing services can be setup in less than an hour. The server can be used to circumvent firewalls, provide strong encryption and overall improve online experience, all for a low monthly cost (less than $1 per day). Consider using [Preemptible VM instances](https://cloud.google.com/compute/docs/instances/preemptible) which can be started right back up with a script to lower costs.
 
