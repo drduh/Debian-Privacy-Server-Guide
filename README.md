@@ -1,4 +1,4 @@
-This is a guide to configuring and managing a domain and remote host with services such as VPN, obfuscated Tor bridge, and encrypted chat, using the [Debian GNU/Linux](https://www.debian.org/releases/jessie/amd64/ch01s03.html.en) operating system and other free software.
+This is a guide to configuring and managing a domain and remote host with services such as VPN, obfuscated Tor bridge, and encrypted chat, using the [Debian GNU/Linux](https://www.debian.org/releases/stable/) operating system and other free software.
 
 It is written for [Google Compute Engine](https://cloud.google.com/products/compute), but will work well with other providers, such as Amazon or any computer running GNU/Linux.
 
@@ -7,10 +7,6 @@ It is written for [Google Compute Engine](https://cloud.google.com/products/comp
 [Tonic](https://www.tonic.to/) offers [.to](https://en.wikipedia.org/wiki/.to) domains, which has many available short, memorable, three-letter names available. Tonic.to also does not maintain [a public whois database](https://www.tonic.to/faq.htm#16).
 
 You could instead purchase a less expensive `.com`, `.net` or any available domain name from a variety of TLDs and registrars, though be aware that not all offer [domain privacy](https://en.wikipedia.org/wiki/Domain_privacy), for instance the `.us` ccTLD.
-
-After purchasing a domain, configure DNS settings. To use [Google Cloud DNS](https://cloud.google.com/dns/overview) with Tonic:
-
-<img width="500" src="https://cloud.githubusercontent.com/assets/12475110/15527061/8a3ea228-2226-11e6-8970-8178f85af159.png">
 
 Wait for DNS records to propagate, which may take several hours. While you wait, feel free to learn more about [Tonga](https://www.washingtonpost.com/archive/business/1997/07/01/tiny-tonga-expands-its-domain/40ad136f-6379-4c6c-b472-fed52378ba35/).
 
@@ -48,7 +44,7 @@ INSTANCE=$(LC_ALL=C tr -dc '[:lower:]' < /dev/urandom | head -c8)
 NETWORK=debian-privsec-net
 TYPE=g1-small
 ZONE=us-east1-a
-IMAGE=$(gcloud compute images list | grep debian-10 | awk '{print $1}')
+IMAGE=$(gcloud compute images list | grep debian | awk '{print $1}')
 ```
 
 Create a new network:
@@ -91,9 +87,7 @@ gcloud compute --project=$PROJECT instances create $INSTANCE --zone=$ZONE \
 
 Once an external IP address is assigned, configure DNS records. To do so, go to Networking > [Cloud DNS](https://console.cloud.google.com/networking/dns/zones) and select **Create Zone** to create a new DNS zone.
 
-Create an [A record](https://support.dnsimple.com/articles/a-record/) for the domain by selecting **Add Record Set**:
-
-<img width="400" src="https://cloud.githubusercontent.com/assets/12475110/15527304/b8d7e7dc-2228-11e6-82e1-cecfef097c4a.png">
+Create an [A record](https://support.dnsimple.com/articles/a-record/) for the domain by selecting **Add Record Set**.
 
 Select **Create**.
 
@@ -135,7 +129,7 @@ ssh-keygen -t rsa -b 4096 -C 'sysadm' -f ~/.ssh/duh
 
 Where `sysadm` is the desired username on the instance.
 
-Create a temporary file in [metadata format](https://cloud.google.com/compute/docs/instances/adding-removing-ssh-keys):
+Create a temporary file in [metadata format](https://docs.cloud.google.com/compute/docs/connect/add-ssh-keys):
 
 ```console
 $ (echo -n "sysadm:" ; cat ~/.ssh/duh.pub) > /tmp/ssh-public-key
@@ -267,7 +261,7 @@ If the fingerprint matches the local file version, exit the original SSH session
 
 ### tmux
 
-[tmux](https://tmux.github.io/) is a terminal multiplexer. This program allows reconnecting to a working terminal session on the instance.
+[tmux](https://github.com/tmux/tmux/wiki) is a terminal multiplexer. This program allows reconnecting to a working terminal session on the instance.
 
 Use [my configuration](https://github.com/drduh/config/blob/main/tmux.conf):
 
@@ -424,7 +418,7 @@ sudo apt -y install libsodium-dev libevent-dev
 Clone the DNSCrypt-Wrapper repository, make and install the software:
 
 ```bash
-git clone --recursive git://github.com/Cofyc/dnscrypt-wrapper.git
+git clone --recursive https://github.com/Cofyc/dnscrypt-wrapper.git
 cd dnscrypt-wrapper
 make configure
 ./configure
@@ -452,7 +446,7 @@ server_names = ['abc']
   stamp = 'sdns://AQAAAAAAAAAAEj...ZA'
 ```
 
-See [drduh/config/dnscrypt-proxy.toml](https://github.com/drduh/config/blob/main/dnscrypt-proxy.toml) and [jedisct1/dnscrypt-proxy/example-dnscrypt-proxy.toml](https://github.com/jedisct1/dnscrypt-proxy/blob/master/dnscrypt-proxy/example-dnscrypt-proxy.toml) for examples.
+See [drduh/config/dnscrypt-proxy.toml](https://github.com/drduh/config/blob/main/dnscrypt-proxy.toml) and [DNSCrypt/dnscrypt-proxy/example-dnscrypt-proxy.toml](https://github.com/DNSCrypt/dnscrypt-proxy/blob/master/dnscrypt-proxy/example-dnscrypt-proxy.toml).
 
 Start the client manually:
 
@@ -540,7 +534,7 @@ HTTP/1.1 200 OK
 Content-Length: 2500
 Content-Type: text/html
 Cache-Control: no-cache
-Date: Mon, 26 Jul 2026 12:00:00 GMT
+Date: Sun, 26 Jul 2026 12:00:00 GMT
 Last-Modified: Sun, 26 Jul 2026 12:00:00 GMT
 Expires: Sat, 17 Jun 2000 12:00:00 GMT
 Pragma: no-cache
@@ -644,63 +638,6 @@ Install:
 sudo apt install obfs4proxy
 ```
 
-Or to install the latest version of obfs4proxy manually, first install [Golang](https://golang.org/):
-
-```bash
-sudo apt -y install golang
-```
-
-Create a temporary directory, [download and build](https://golang.org/cmd/go/) [obfs4proxy](https://gitweb.torproject.org/pluggable-transports/obfs4.git):
-
-```bash
-export GOPATH=$(mktemp -d)
-go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
-```
-
-Confirm that it built successfully, then install it:
-
-```console
-$ echo $?
-0
-
-$ $GOPATH/bin/obfs4proxy -version
-obfs4proxy-0.0.12-dev
-```
-
-> [!NOTE]
-> If the build fails, you likely need a more recent version of [Go](https://debian-administration.org/article/727/Installing_the_Go_programming_language_on_Debian_GNU/Linux):
-
-```console
-$ go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
-# github.com/refraction-networking/utls
-/tmp/tmp.s8JQjim8W7/src/github.com/refraction-networking/utls/tls.go:106: undefined: time.Until
-# golang.org/x/net/http2
-/tmp/tmp.s8JQjim8W7/src/golang.org/x/net/http2/server.go:214: h1.IdleTimeout undefined (type *http.Server has no field or method
- IdleTimeout)
-/tmp/tmp.s8JQjim8W7/src/golang.org/x/net/http2/server.go:215: h1.IdleTimeout undefined (type *http.Server has no field or method
-[...]
-
-$ go version
-go version go1.7.4 linux/amd64
-
-$ curl -O https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz
-
-$ sudo tar -C /usr/local -xzf go*gz
-
-$ /usr/local/go/bin/go version
-go version go1.13.4 linux/amd64
-
-$ /usr/local/go/bin/go get git.torproject.org/pluggable-transports/obfs4.git/obfs4proxy
-```
-
-Copy the built binary:
-
-```bash
-sudo service tor stop
-sudo cp $GOPATH/bin/obfs4proxy /usr/local/bin
-sudo chown debian-tor:debian-tor /usr/local/bin/obfs4proxy
-```
-
 Edit `/etc/tor/torrc` to include:
 
 ```
@@ -778,13 +715,9 @@ UseBridges 1
 Bridge obfs4 104.197.215.107:10022 cert=4ar[...]8FA iat-mode=0
 ```
 
-Using [Tor Browser](https://www.torproject.org/projects/torbrowser.html.en), select Configure and Enter custom bridges:
-
-<img width="500" src="https://cloud.githubusercontent.com/assets/12475110/15528945/844fe950-2238-11e6-8348-3084cf6341d9.png">
-
 ### Onion Service
 
-To host an [Onion Service](https://www.torproject.org/docs/onion-services), append the following lines to `/etc/tor/torrc` on the server - for example, to use with a Web server on localhost:
+To host an [Onion Service](https://community.torproject.org/onion-services/), append the following lines to `/etc/tor/torrc` on the server - for example, to use with a Web server on localhost:
 
 ```console
 HiddenServiceDir /var/lib/tor/hidden_service/
@@ -805,8 +738,6 @@ pqccxgxxxxxxxl5h.onion
 ```
 
 Services such as [SSH](https://tor.stackexchange.com/questions/123/how-can-i-anonymize-my-ssh-traffic-using-the-tor-network) can also be hosted as an onion service.
-
-To generate a specific .onion hostname, [some](https://security.stackexchange.com/questions/29772/how-do-you-get-a-specific-onion-address-for-your-hidden-service) [software](https://github.com/ReclaimYourPrivacy/eschalot) exists.
 
 ## Certificates
 
@@ -1010,8 +941,8 @@ $ curl -4 https://icanhazip.com/
 > If IPv6 is disabled, the connection may fail - you will need to disable these options on the server to connect:
 
 ```
-server-ipv6 2001:db8:123::/64
-push "route-ipv6 2000::/3"
+#server-ipv6 2001:db8:123::/64
+#push "route-ipv6 2000::/3"
 ```
 
 To connect from Android, install [OpenVPN Connect](https://play.google.com/store/apps/details?id=net.openvpn.openvpn).
@@ -1241,7 +1172,7 @@ To authenticate the chat partner, type `/otr question foo? bar` where `bar` is a
 
 Or use [agl/xmpp-client](https://github.com/agl/xmpp-client):
 
-```console
+```bash
 go get github.com/agl/xmpp-client
 $GOPATH/bin/xmpp-client
 ```
