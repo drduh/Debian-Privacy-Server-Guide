@@ -446,19 +446,7 @@ $ ./configure
 $ sudo make install
 ```
 
-See instructions [Cofyc/dnscrypt-wrapper](https://github.com/Cofyc/dnscrypt-wrapper) to configure or use [drduh/config/scripts/dnscrypt.sh](https://github.com/drduh/config/blob/master/scripts/dnscrypt.sh):
-
-```console
-$ mkdir ~/dnscrypt-keys
-
-$ cd ~/dnscrypt-keys
-
-$ cp ~/config/scripts/dnscrypt.sh .
-
-$ chmod +x dnscrypt.sh
-
-$ sudo ./dnscrypt.sh
-```
+See instructions [Cofyc/dnscrypt-wrapper](https://github.com/Cofyc/dnscrypt-wrapper) to configure.
 
 Copy the `sdns://` line to a client. To use a port other than 443, use https://dnscrypt.info/stamps to update the value.
 
@@ -472,7 +460,7 @@ $ gcloud compute firewall-rules create dnscrypt-udp-443 --network $NETWORK \
 On a client, edit `dnscrypt-proxy.toml` to include the server stamp:
 
 ```
-listen_addresses = ['127.0.0.1:40']
+listen_addresses = ['127.0.0.1:4200']
 server_names = ['abc']
 [static]
   [static.'abc']
@@ -1153,7 +1141,7 @@ $ curl -vv http://duh.to/
 Hello, World
 ```
 
-You can use [client certificates](https://security.stackexchange.com/questions/14589/advantages-of-client-certificates-for-client-authentication) as a means of authentication and authorization, rather than relying on user-provided passwords. See my Lighttpd [configuration](https://github.com/drduh/config/blob/master/lighttpd.conf) for an example.
+You can use [client certificates](https://security.stackexchange.com/questions/14589/advantages-of-client-certificates-for-client-authentication) as a means of authentication and authorization, rather than relying on user-provided passwords. See my Lighttpd [configuration](https://github.com/drduh/config/blob/master/lighttpd/lighttpd.conf) for an example.
 
 ## XMPP
 
