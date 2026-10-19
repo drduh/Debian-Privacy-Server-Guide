@@ -4,22 +4,17 @@ It is written for [Google Compute Engine](https://cloud.google.com/products/comp
 
 # Domain name
 
-[Tonic](https://www.tonic.to/) offers [.to](https://en.wikipedia.org/wiki/.to) domains, which has many available short, memorable, three-letter names available. Tonic.to also does not maintain [a public whois database](https://www.tonic.to/faq.htm#16).
+Purchase a domain name from any reputable registrar. Be aware not all domains offer [domain privacy](https://en.wikipedia.org/wiki/Domain_privacy), for instance `.us`.
 
-You could instead purchase a less expensive `.com`, `.net` or any available domain name from a variety of TLDs and registrars, though be aware that not all offer [domain privacy](https://en.wikipedia.org/wiki/Domain_privacy), for instance the `.us` ccTLD.
-
-Wait for DNS records to propagate, which may take several hours. While you wait, feel free to learn more about [Tonga](https://www.washingtonpost.com/archive/business/1997/07/01/tiny-tonga-expands-its-domain/40ad136f-6379-4c6c-b472-fed52378ba35/).
-
-Eventually, a [WHOIS lookup](https://lookup.icann.org/) will return the [NS record](https://support.dnsimple.com/articles/ns-record/) of the hosting provider:
+After registration, the [NS record](https://support.dnsimple.com/articles/ns-record/) should be available:
 
 ```console
-$ whois duh.to
-Tonic whoisd V1.1
-duh ns-cloud-c1.googledomains.com
-duh ns-cloud-c2.googledomains.com
+$ dig +short ns tonic.to
+sean.ns.cloudflare.com.
+karina.ns.cloudflare.com.
 ```
 
-If it doesn't look right, log in to Tonic or the registrar and update DNS information accordingly.
+If it doesn't look right, log in to the registrar and update DNS information accordingly.
 
 # Server setup
 
@@ -44,7 +39,7 @@ INSTANCE=$(LC_ALL=C tr -dc '[:lower:]' < /dev/urandom | head -c8)
 NETWORK=debian-privsec-net
 TYPE=g1-small
 ZONE=us-east1-a
-IMAGE=$(gcloud compute images list | grep debian | awk '{print $1}')
+IMAGE=$(gcloud compute images list --filter="name~'^debian-13'" | awk 'NR==2 {print $1}')
 ```
 
 Create a new network:
@@ -93,23 +88,14 @@ Select **Create**.
 
 After a short while, verify an *A record* is returned with the correct IPv4 address for the instance:
 
-```console
-$ dig +short a duh.to
-104.197.215.107
-```
-
-If it doesn't work, wait longer for records to propagate, or try specifying the registrar's name servers:
-
-```console
-$ dig +short a duh.to @ns-cloud-c1.googledomains.com
-104.197.215.107
+```bash
+dig +short a example.com
 ```
 
 Likewise, there should be [SOA records](https://support.dnsimple.com/articles/soa-record/):
 
-```console
-$ dig +short soa duh.to
-ns-cloud-c1.googledomains.com. cloud-dns-hostmaster.google.com. 1 21600 3600 1209600 300
+```bash
+dig +short soa example.com
 ```
 
 ## Setup access
@@ -149,9 +135,9 @@ On a client, edit `~/.ssh/config` to [use](https://nerderati.com/2011/03/17/simp
 ```
 Host duh
   User sysadm
-  HostName duh.to
+  HostName example.com
   #HostName 104.197.215.107
-  IdentityFile ~/.ssh/duh
+  IdentityFile ~/.ssh/key-18oct26
 ```
 
 The first time you connect, you will encounter a [warning](https://superuser.com/questions/421074/ssh-the-authenticity-of-host-host-cant-be-established) about the host authenticity:
@@ -229,7 +215,7 @@ On a client, edit `~/.ssh/config` to make any modifications, for example by addi
 ```
 Host duh
   User sysadm
-  HostName duh.to
+  HostName example.com
   IdentityFile ~/.ssh/duh
   Port 2222
 ```
@@ -377,8 +363,7 @@ Check the log to make sure it is running:
 
 ```console
 $ sudo tail -F /tmp/dns
-started, version 2.76 cachesize 2000
-compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
+started, version 2.91 cachesize 2000
 compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
 reading /etc/resolv.dnsmasq
 using nameserver 169.254.169.254#53
@@ -458,7 +443,7 @@ Check the log file:
 
 ```console
 $ tail -f dnscrypt.log
-[NOTICE] dnscrypt-proxy 2.0.33
+[NOTICE] dnscrypt-proxy 2.1.18
 [NOTICE] Network connectivity detected
 [NOTICE] Firefox workaround initialized
 [NOTICE] Loading the set of blocking rules from [blocklist.txt]
@@ -487,7 +472,7 @@ DNSCrypt supports [query blocking](https://github.com/DNSCrypt/dnscrypt-proxy/wi
 On the client, clone the dnscrypt-proxy repository and use the included Python script to generate a list, then configure DNSCrypt to use it.
 
 ```console
-$ git clone https://github.com/jedisct1/dnscrypt-proxy
+$ git clone https://github.com/DNSCrypt/dnscrypt-proxy
 
 $ cd dnscrypt-proxy/utils/generate-domains-blocklist
 
@@ -770,15 +755,10 @@ Change OpenSSL certificate requirements to disable mandatory location fields:
 sudo sed -i.bak "s/= match/= optional/g" /usr/lib/ssl/openssl.cnf
 ```
 
-Run the script, accepting prompts with `y` to sign certificates and commit changes:
+Run the script, which will create signed certificates:
 
-```console
-$ ./pki.sh
-Generating RSA private key, 4096 bit long modulus
-........................................................................++
-.....................................++
-[...]
-Sign the certificate? [y/n]:y
+```bash
+./pki.sh
 ```
 
 If there were no errors, the script created private and public keys for a certificate authority, a server and a client - along with certificate request (srl) and configuration files (cnf).
@@ -789,7 +769,7 @@ To check a certificate file (`.pem` extension) with OpenSSL:
 $ openssl x509 -in ca.pem -noout -subject -issuer -enddate
 subject= /CN=4CC90cC34b
 issuer= /CN=4CC90cC34b
-notAfter=Dec 1 00:00:00 2020 GMT
+notAfter=Dec 1 00:00:00 2026 GMT
 ```
 
 You could also use [OpenVPN/easy-rsa](https://github.com/OpenVPN/easy-rsa) or [Let's Encrypt](https://letsencrypt.org/).
@@ -812,9 +792,9 @@ Use [drduh/config/openvpn/server.ovpn](https://github.com/drduh/config/blob/main
 sudo cp ~/config/openvpn/server.ovpn /etc/openvpn
 ```
 
-Or [customize your own](https://openvpn.net/index.php/open-source/documentation/howto.html#server).
+Or [customize your own](https://openvpn.net/community-docs/how-to.html#server).
 
-Preferably client-side (where there is more entropy available), generate a [static key](https://openvpn.net/index.php/open-source/documentation/miscellaneous/78-static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
+Preferably client-side (where there is more entropy available), generate a [static key](https://openvpn.net/community-docs/static-key-mini-howto.html) so that only trusted clients can attempt connections (extra authentication on top of TLS):
 
 ```bash
 openvpn --genkey --secret ta.key
@@ -891,11 +871,11 @@ IFCONFIG POOL: base=10.8.0.2 size=252, ipv6=0
 Initialization Sequence Completed
 ```
 
-If OpenVPN still fails due to unknown ciphers, you may need to install a newer OpenVPN server version - see [OpenvpnSoftwareRepos](https://community.openvpn.net/openvpn/wiki/OpenvpnSoftwareRepos).
+If OpenVPN still fails due to unknown ciphers, you may need to install a newer OpenVPN server version - see [OpenVPN software repos](https://community.openvpn.net/Pages/OpenVPN%20software%20repos).
 
 Update the remote hosts firewall rules to allow the new VPN listening port (in this case, UDP port 443).
 
-For each connecting device, edit a [client configuration](https://openvpn.net/index.php/open-source/documentation/howto.html#client) using [my configuration](https://github.com/drduh/config/blob/main/openvpn/client.ovpn):
+For each connecting device, edit a [client configuration](https://openvpn.net/community-docs/how-to.html#client) using [drduh/openvpn/client.ovpn](https://github.com/drduh/config/blob/main/openvpn/client.ovpn):
 
 ```bash
 mkdir ~/vpn
@@ -926,7 +906,7 @@ VERIFY KU OK
 Validating certificate extended key usage
 ++ Certificate has EKU (str) TLS Web Server Authentication, expects TLS Web Server Authentication
 VERIFY EKU OK
-VERIFY OK: depth=0, CN=duh.to
+VERIFY OK: depth=0, CN=example.com
 [...]
 ```
 
@@ -967,7 +947,7 @@ VERIFY KU OK
 Validating certificate extended key usage
 ++ Certificate has EKU (str) TLS Web Server Authentication, expects TLS Web Server Authentication
 VERIFY EKU OK
-VERIFY OK: depth=0, CN=duh.to
+VERIFY OK: depth=0, CN=example.com
 [...]
 Initialization Sequence Completed
 ```
@@ -1037,13 +1017,6 @@ Create some content:
 
 ```bash
 echo "Hello, World" | sudo tee /var/www/index.html
-```
-
-Once Lighttpd is running, request a page from the server in a Web browser or by using cURL:
-
-```console
-$ curl -vv http://duh.to/
-Hello, World
 ```
 
 You can use [client certificates](https://security.stackexchange.com/questions/14589/advantages-of-client-certificates-for-client-authentication) as a means of authentication and authorization, rather than relying on user-provided passwords. See my Lighttpd [configuration](https://github.com/drduh/config/blob/main/lighttpd/lighttpd.conf) for an example.
